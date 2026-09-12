@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Chrome で使うための手順 (rev5)</title>
+<style>
+    body { font-family: "Meiryo", sans-serif; line-height: 1.7; color: #333; padding: 20px; background: #fafafa; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { border-bottom: 3px solid #2c3e50; padding-bottom: 10px; color: #2c3e50; }
+    h2 { border-bottom: 2px solid #34495e; padding-bottom: 5px; margin-top: 34px; color: #34495e; }
+    h3 { color: #16a085; border-left: 5px solid #16a085; padding-left: 10px; margin-top: 24px; }
+    code { background: #f4f6f7; border: 1px solid #dfe4e6; border-radius: 3px; padding: 2px 6px; color: #c0392b; font-family: monospace; word-break: break-all; }
+    pre { background: #282c34; color: #abb2bf; padding: 14px; border-radius: 5px; overflow-x: auto; }
+    pre code { background: none; border: none; color: inherit; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+    th, td { border: 1px solid #ccc; padding: 9px; text-align: left; vertical-align: top; }
+    th { background: #ecf0f1; }
+    .why { background: #fdecea; border-left: 5px solid #e74c3c; padding: 14px; margin: 18px 0; }
+    .tip { background: #e8f5e9; border-left: 5px solid #4CAF50; padding: 14px; margin: 18px 0; }
+    .note { background: #fff8e1; border-left: 5px solid #ffc107; padding: 14px; margin: 18px 0; }
+    ol li, ul li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Google Chrome で使うための手順</h1>
+<p>対象ファイル: <code>jump_rope_counter_rev5_chrome-support.html</code></p>
+
+<div class="why">
+    <h3 style="margin-top:0; border:none; padding-left:0; color:#c0392b;">最初に：なぜファイルを直接開くと動かないのか</h3>
+    <p>Google Chrome は、セキュリティ上の理由で次の2つの場合に<b>カメラを完全に無効化</b>します。これはブラウザ側の仕様で、アプリのコードでは回避できません。</p>
+    <ul>
+        <li>ファイルをダブルクリックして開いた場合（アドレスが <code>file://</code> で始まる）</li>
+        <li><code>localhost</code> 以外のアドレスに <code>http://</code> でアクセスした場合</li>
+    </ul>
+    <p>さらに <code>file://</code> では、骨格推定ライブラリ（MediaPipe）の読み込み自体も遮断されるため、動画ファイルモードも動きません。</p>
+    <p><b>対策は1つだけです。ローカルサーバー経由で開いてください。</b>そのためのスクリプト <code>serve.py</code> を同梱しています。</p>
+</div>
+
+<h2>1. 事前準備</h2>
+<p>Python 3 が必要です。インストール済みか確認してください。</p>
+<table>
+    <tr><th>OS</th><th>確認コマンド</th><th>未インストールの場合</th></tr>
+    <tr><td>Windows</td><td><code>py --version</code></td><td>Microsoft Store で「Python 3」を検索してインストール</td></tr>
+    <tr><td>Mac</td><td><code>python3 --version</code></td><td>標準で入っています。無ければ <code>brew install python3</code></td></tr>
+</table>
+<p>次の2つのファイルを<b>同じフォルダ</b>に置いてください。</p>
+<ul>
+    <li><code>jump_rope_counter_rev5_chrome-support.html</code></li>
+    <li><code>serve.py</code></li>
+</ul>
+
+<h2>2. PCのChromeで使う場合</h2>
+<p>最も簡単です。<code>localhost</code> は Chrome が例外的にカメラを許可するアドレスなので、HTTPSは不要です。</p>
+<h3>手順</h3>
+<ol>
+    <li>ファイルを置いたフォルダを開く</li>
+    <li>そのフォルダでコマンドプロンプト（またはターミナル）を開く
+        <ul>
+            <li>Windows: フォルダのアドレスバーに <code>cmd</code> と入力して Enter</li>
+            <li>Mac: フォルダを右クリック →「フォルダに新規ターミナル」</li>
+        </ul>
+    </li>
+    <li>次のコマンドを実行する
+        <pre><code># Windows
+py serve.py
+
+# Mac
+python3 serve.py</code></pre>
+    </li>
+    <li>Chrome が自動で開きます。開かない場合は <code>http://localhost:8000/</code> にアクセスしてください</li>
+    <li>画面上部の「動作環境」が<b>緑色（問題ありません）</b>になっていることを確認する</li>
+    <li>「カメラを開始」を押し、許可ダイアログで「許可」を選ぶ</li>
+</ol>
+<div class="tip">
+    <b>終了するには</b> コマンドプロンプトで <code>Ctrl</code> + <code>C</code> を押してください。
+</div>
+
+<h2>3. スマホのChromeで使う場合</h2>
+<p>スマホからは <code>localhost</code> の例外が使えない（スマホ自身を指してしまう）ため、<b>HTTPSが必須</b>です。3つの方法があります。</p>
+
+<h3>方法A：同梱スクリプトのHTTPSモード（推奨）</h3>
+<p>PCとスマホが<b>同じWi-Fi</b>につながっている必要があります。</p>
+<ol>
+    <li>PCで次のコマンドを実行する
+        <pre><code># Windows
+py serve.py --https
+
+# Mac
+python3 serve.py --https</code></pre>
+    </li>
+    <li>画面に表示される、スマホ用のアドレスを確認する（例: <code>https://192.168.1.5:8443/...</code>）</li>
+    <li>そのアドレスをスマホの Chrome で開く</li>
+    <li><b>「接続がプライベートではありません」という警告が出ます。</b>これは自己署名証明書を使っているためで、想定どおりの動作です。<br>
+        「詳細設定」→「(安全ではありません) にアクセスする」を選んでください</li>
+    <li>「カメラを開始」を押し、許可ダイアログで「許可」を選ぶ</li>
+</ol>
+<div class="note">
+    <b>つながらない場合</b>は、PCのファイアウォールがポート 8443 を塞いでいる可能性があります。
+    Windows Defender ファイアウォールの通知が出たら「アクセスを許可する」を選んでください。<br>
+    また、職場や学校のWi-Fiでは端末どうしの通信が禁止されている場合があります。その場合は方法Bをお使いください。
+</div>
+
+<h3>方法B：HTTPSのWebホスティングに置く</h3>
+<p>最も確実で、証明書の警告も出ません。イベントなどで複数人が使う場合はこちらを推奨します。</p>
+<ol>
+    <li>GitHub Pages、Netlify Drop、Cloudflare Pages などの無料ホスティングにHTMLファイルをアップロードする<br>
+        （Netlify Drop はフォルダをドラッグ＆ドロップするだけで公開できます）</li>
+    <li>発行された <code>https://</code> のURLをスマホの Chrome で開く</li>
+</ol>
+
+<h3>方法C：Chromeのフラグで例外登録する（検証用）</h3>
+<p>Android の Chrome 限定です。証明書を用意せずに <code>http://</code> でカメラを使えるようにします。<b>検証用の機能</b>なので、使い終わったら元に戻してください。</p>
+<ol>
+    <li>PCで <code>py serve.py</code>（HTTPSなし）を実行し、表示されたスマホ用アドレスを控える（例: <code>http://192.168.1.5:8000</code>）</li>
+    <li>Android の Chrome のアドレスバーに <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> と入力する</li>
+    <li>入力欄に控えたアドレスを<b>ポート番号まで</b>入力し、右のプルダウンを <b>Enabled</b> にする</li>
+    <li>画面下部の「Relaunch」を押して Chrome を再起動する</li>
+</ol>
+
+<h2>4. 画面上部の「動作環境」の見方</h2>
+<p>アプリを開くと、最初に環境チェックの結果が表示されます。</p>
+<table>
+    <tr><th>表示</th><th>意味</th><th>対応</th></tr>
+    <tr><td style="color:#2e7d32;">緑：問題ありません</td><td>カメラを使える状態</td><td>そのまま「カメラを開始」へ</td></tr>
+    <tr><td style="color:#f57f17;">黄：注意事項があります</td><td>動作はするが推奨環境ではない</td><td>「詳細」を開いて内容を確認</td></tr>
+    <tr><td style="color:#c62828;">赤：カメラを使えません</td><td>表示方法かライブラリに問題がある</td><td>パネル内に表示される対処法に従う</td></tr>
+</table>
+<p>チェックしている項目は次の5つです。</p>
+<ul>
+    <li><b>ブラウザ</b> — Chrome / Edge かどうか</li>
+    <li><b>表示方法</b> — <code>file://</code> / <code>http://</code> / <code>https://</code> / <code>localhost</code> の判別</li>
+    <li><b>セキュアコンテキスト</b> — ブラウザがカメラ利用を許す状態か</li>
+    <li><b>カメラAPI</b> — <code>navigator.mediaDevices</code> が使えるか</li>
+    <li><b>MediaPipe</b> — 骨格推定ライブラリを読み込めたか（インターネット接続が必要）</li>
+</ul>
+
+<h2>5. よくあるつまずき</h2>
+<table>
+    <tr><th>症状</th><th>原因と対処</th></tr>
+    <tr><td>「カメラを開始」を押しても何も起きない</td><td>許可ダイアログを以前「ブロック」にした可能性があります。アドレスバー左の鍵アイコン →「サイトの設定」→ カメラを「許可」に変更し、ページを再読み込みしてください。</td></tr>
+    <tr><td>映像は出るが骨格の線が出ない</td><td>全身（頭から足先まで）が映っていません。カメラから2〜3メートル離れてください。</td></tr>
+    <tr><td>「他のアプリがカメラを使用中」と出る</td><td>Zoom、Teams、カメラアプリなどを終了してから再試行してください。</td></tr>
+    <tr><td>スマホで動きがカクカクする</td><td>「処理の重さ」を<b>軽量</b>、解像度を<b>低</b>、「判定グラフを表示」を<b>オフ</b>にしてください。</td></tr>
+    <tr><td>縄が数えられない</td><td>「赤色マスク表示」をオンにして、縄だけが水色になるよう色相・彩度を調整してください。暗い場所では赤色の検出が不安定になります。</td></tr>
+    <tr><td>証明書の警告が消えない</td><td>自己署名証明書では毎回警告が出ます。気になる場合は方法B（HTTPSホスティング）をお使いください。</td></tr>
+</table>
+
+<h2>6. serve.py のオプション</h2>
+<table>
+    <tr><th>コマンド</th><th>動作</th></tr>
+    <tr><td><code>python3 serve.py</code></td><td>HTTPで起動（ポート8000）。PCのChrome用。</td></tr>
+    <tr><td><code>python3 serve.py --https</code></td><td>HTTPSで起動（ポート8443）。自己署名証明書を自動生成。スマホ用。</td></tr>
+    <tr><td><code>python3 serve.py --port 9000</code></td><td>ポート番号を変更する。</td></tr>
+    <tr><td><code>python3 serve.py --no-open</code></td><td>ブラウザを自動で開かない。</td></tr>
+</table>
+<p>証明書は初回起動時に <code>localhost_cert.pem</code> と <code>localhost_key.pem</code> として作られ、2回目以降は再利用されます。作り直したい場合はこの2つのファイルを削除してください。</p>
+
+</div>
+</body>
+</html>
