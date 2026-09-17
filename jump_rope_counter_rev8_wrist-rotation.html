@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1e1e1e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ジャンプ＆縄跳びカウント判定 rev4 (スマホカメラ対応)</title>
+    <style>
+        body { font-family: sans-serif; background-color: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; }
+
+        .controls-wrapper { display: flex; justify-content: center; gap: 20px; margin-bottom: 10px; flex-wrap: wrap; }
+        .controls { padding: 15px; background: #333; border-radius: 8px; text-align: left; width: 100%; max-width: 800px; box-sizing: border-box;}
+
+        .slider-container { margin-top: 10px; padding-top: 10px; border-top: 1px solid #555; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;}
+        .slider-label { min-width: 280px; }
+
+        .video-controls { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #666; display: flex; align-items: center; gap: 10px; }
+
+        #seekSlider { flex-grow: 1; cursor: pointer; }
+        #restartBtn { padding: 5px 10px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 4px; font-weight: bold;}
+        #restartBtn:hover { background-color: #45a049; }
+        #startCameraBtn { padding: 10px 20px; background-color: #2196F3; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1.1em;}
+        #startCameraBtn:hover { background-color: #1976D2; }
+        #timeDisplay { font-family: monospace; font-size: 1.1em; width: 100px; text-align: right;}
+
+        #container {
+            position: relative;
+            display: inline-block;
+            margin-top: 10px;
+            max-width: 100%;
+        }
+
+        canvas#outputCanvas {
+            background-color: #000;
+            border: 2px solid #555;
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.2em;
+            text-align: left;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 280px;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 10;
+        }
+        .stat-line { margin: 10px 0; display: flex; align-items: center; justify-content: space-between;}
+
+        .huge-number {
+            font-size: 3em;
+            line-height: 0.8;
+            margin-left: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        .highlight { color: #00ffcc; font-weight: bold; }
+
+        #poseGraphCanvas {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 900px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 8px;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.3);
+            z-index: 10;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .radio-group { font-size: 1.1em; font-weight: bold; background: #222; padding: 10px; border-radius: 6px; }
+        .radio-group input { margin-left: 15px; transform: scale(1.2); cursor: pointer; }
+        .radio-group label { cursor: pointer; margin-left: 5px; }
+
+        .section-title { color: #ff9800; font-weight: bold; font-size: 1.05em; }
+        .section-title2 { color: #4CAF50; font-weight: bold; font-size: 1.05em; }
+        .reset-section { margin-top: 15px; padding: 10px; border: 1px solid #4CAF50; border-radius: 6px; background: #1d271d; }
+        .reset-section .slider-container:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+        #manualResetBtn { padding: 6px 14px; cursor: pointer; background-color: #4CAF50; color: #fff; border: none; border-radius: 4px; font-weight: bold; }
+        #manualResetBtn:hover { background-color: #45a049; }
+        .rope-section { margin-top: 15px; padding: 10px; border: 1px solid #ff9800; border-radius: 6px; background: #2a2318; }
+        .rope-section .slider-container:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+        .hint { font-size: 0.8em; color: #bbb; margin-top: 8px; line-height: 1.5; }
+        .chk { margin-right: 15px; cursor: pointer; }
+
+        /* ===== rev4: スマホ対応 ===== */
+        select, input[type="file"] { background: #222; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 8px; font-size: 1em; }
+        input[type="range"] { flex: 1 1 140px; min-width: 120px; height: 28px; }
+        .warn-banner { background: #b71c1c; color: #fff; padding: 10px 14px; border-radius: 6px; margin: 0 auto 12px; max-width: 800px; text-align: left; font-size: 0.9em; }
+
+        /* rev5: 環境診断パネル */
+        .env-panel { max-width: 800px; margin: 0 auto 12px; text-align: left; border-radius: 6px;
+                     padding: 10px 14px; font-size: 0.9em; background: #2b2b2b; border: 1px solid #555; }
+        .env-panel.ok   { background: #1b3a1e; border-color: #4CAF50; }
+        .env-panel.warn { background: #3d3320; border-color: #ffc107; }
+        .env-panel.ng   { background: #3d1f1f; border-color: #e74c3c; }
+        .env-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: bold; }
+        #envTable { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.9em; }
+        #envTable td { border: 1px solid #555; padding: 6px 8px; vertical-align: top; }
+        #envTable td:first-child { width: 34%; color: #bbb; }
+        #envAdvice { line-height: 1.7; }
+        #envAdvice ol { padding-left: 1.4em; margin: 6px 0; }
+        #envAdvice code { background: #111; border: 1px solid #555; border-radius: 3px; padding: 1px 5px; color: #ffcc66; word-break: break-all; }
+        .env-ok { color: #8bc34a; } .env-warn { color: #ffc107; } .env-ng { color: #ff6b6b; }
+        .cam-btn { padding: 10px 16px; background-color: #607d8b; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1em; }
+        .cam-btn:hover { background-color: #546e7a; }
+        details.adv { margin-top: 12px; border-top: 1px solid #555; padding-top: 10px; }
+        details.adv > summary { cursor: pointer; font-weight: bold; color: #00ffcc; padding: 8px 0; font-size: 1.05em; list-style: revert; }
+
+        /* 計測モード: 操作パネルを隠して映像とカウントだけにする */
+        body.measure-mode .controls-wrapper,
+        body.measure-mode h2,
+        body.measure-mode .warn-banner,
+        body.measure-mode .env-panel { display: none; }
+        body.measure-mode { padding: 0; }
+        body.measure-mode #container { margin-top: 0; }
+        #measureExitBtn { display: none; position: fixed; top: 10px; left: 10px; z-index: 30;
+            padding: 10px 14px; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid #888;
+            border-radius: 6px; font-weight: bold; }
+        body.measure-mode #measureExitBtn { display: block; }
+
+        /* グラフ非表示オプション */
+        #poseGraphCanvas.hidden-graph { display: none; }
+
+        @media (max-width: 900px) {
+            body { padding: 8px; }
+            h2 { font-size: 1.1em; margin: 6px 0; }
+            .controls { padding: 10px; }
+            .slider-label { min-width: 100%; font-size: 0.9em; }
+            .slider-container { gap: 8px; }
+            .video-controls { flex-wrap: wrap; }
+
+            /* 映像を画面幅いっぱいに */
+            #container { display: block; width: 100%; margin-top: 6px; }
+            canvas#outputCanvas { width: 100%; border-width: 1px; }
+
+            /* ステータスパネルを小型化 */
+            #stats { top: 4px; right: 4px; left: 4px; min-width: 0; padding: 8px 10px; font-size: 0.8em; border-radius: 6px; }
+            #stats .stat-line { margin: 4px 0; }
+            .huge-number { font-size: 2em; margin-left: 8px; }
+
+            /* グラフは画面下部に横幅いっぱいで配置 */
+            #poseGraphCanvas { left: 4px; right: 4px; bottom: 4px; width: auto; height: 110px; }
+
+            .radio-group { font-size: 1em; }
+            .radio-group input { margin-left: 8px; }
+            #startCameraBtn, .cam-btn, #manualResetBtn { width: 100%; padding: 14px; margin-top: 6px; }
+            .hint { font-size: 0.78em; }
+        }
+
+        @media (max-width: 480px) {
+            #stats { font-size: 0.72em; padding: 6px 8px; }
+            .huge-number { font-size: 1.6em; }
+            #poseGraphCanvas { height: 90px; }
+        }
+    </style>
+    <script>window.__libError = [];</script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"
+            onerror="window.__libError.push('pose.js')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"
+            onerror="window.__libError.push('drawing_utils.js')"></script>
+</head>
+<body>
+
+    <h2>ジャンプ＆縄跳びカウント判定システム <span style="font-size:0.6em; color:#8bc34a;">rev8 : 手首の回転で数える</span></h2>
+
+    <div id="envPanel" class="env-panel">
+        <div class="env-head">
+            <span id="envTitle">動作環境をチェックしています…</span>
+            <button id="envToggle" class="cam-btn" style="padding:6px 12px;">詳細</button>
+        </div>
+        <div id="envBody" style="display:none;">
+            <table id="envTable"></table>
+            <div id="envAdvice"></div>
+        </div>
+    </div>
+
+    <button id="measureExitBtn">≡ 設定を表示</button>
+
+    <div class="controls-wrapper">
+        <div class="controls">
+
+            <div class="slider-container radio-group" style="border-top: none; padding-top: 0;">
+                <span class="slider-label" style="color: #00ffcc;">■ 入力ソース:</span>
+                <input type="radio" id="modeFile" name="inputMode" value="file" checked>
+                <label for="modeFile">動画ファイル</label>
+                <input type="radio" id="modeCamera" name="inputMode" value="camera">
+                <label for="modeCamera">Webカメラ (リアルタイム)</label>
+            </div>
+
+            <div id="fileControls">
+                <label for="videoUpload">動画を選択してください: </label>
+                <input type="file" id="videoUpload" accept="video/mp4,video/x-m4v,video/*"><br>
+                <div class="video-controls">
+                    <button id="restartBtn">最初から</button>
+                    <input type="range" id="seekSlider" value="0" min="0" max="100" step="0.1">
+                    <span id="timeDisplay">0:00 / 0:00</span>
+                </div>
+            </div>
+
+            <div id="cameraControls" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 2px dashed #666;">
+                <div class="slider-container" style="border-top: none; margin-top: 0; padding-top: 0;">
+                    <span class="slider-label" style="color:#00ffcc;">■ 使用するカメラ:</span>
+                    <select id="facingSelect">
+                        <option value="environment" selected>背面カメラ (外側)</option>
+                        <option value="user">前面カメラ (自撮り)</option>
+                    </select>
+                    <select id="deviceSelect" style="display:none;"></select>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">解像度:</span>
+                    <select id="resolutionSelect">
+                        <option value="640x480">低 (640x480) - 動作が軽い</option>
+                        <option value="1280x720" selected>中 (1280x720) - 推奨</option>
+                        <option value="1920x1080">高 (1920x1080)</option>
+                    </select>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">処理の重さ (骨格推定の精度):</span>
+                    <select id="perfSelect">
+                        <option value="0">軽量 - スマホ向け</option>
+                        <option value="1" selected>標準</option>
+                        <option value="2">高精度 - PC向け</option>
+                    </select>
+                </div>
+
+                <div class="slider-container">
+                    <button id="startCameraBtn">カメラを開始</button>
+                    <button id="switchCameraBtn" class="cam-btn" style="display:none;">カメラを切替</button>
+                </div>
+
+                <div class="hint">
+                    ブラウザの許可ダイアログが出たら「許可」してください。<br>
+                    <b>スマホでの設置のコツ:</b> 全身（頭から足元まで）と足の周りの床が映る位置に置いてください。三脚や壁に立てかけて固定し、挑戦者は2〜3メートル離れて縦向き画面に収まるようにすると安定します。動きの速い縄を捉えるため、できるだけ明るい場所で使ってください。
+                </div>
+            </div>
+
+            <div class="slider-container">
+                <span class="slider-label" style="color:#00ffcc;">■ 画面表示:</span>
+                <label class="chk"><input type="checkbox" id="showGraphChk" checked> 判定グラフを表示</label>
+                <label class="chk"><input type="checkbox" id="keepAwakeChk" checked> 計測中は画面を消さない</label>
+                <button id="measureModeBtn" class="cam-btn">計測モード (操作パネルを隠す)</button>
+            </div>
+
+            <div class="slider-container">
+                <span class="slider-label">ジャンプ判定の高さ (胴の長さの〇%):</span>
+                <input type="range" id="jumpThreshold" min="10" max="100" value="30">
+                <span id="jumpThresholdValue" style="width: 40px;">30%</span>
+            </div>
+
+            <!-- ▼▼▼ 計測の開始とリセット ▼▼▼ -->
+            <div class="reset-section">
+                <div class="slider-container">
+                    <span class="slider-label section-title2">■ 計測の開始とリセット</span>
+                    <button id="manualResetBtn">カウントを0に戻す</button>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">スタート前のカウントダウン (秒):</span>
+                    <input type="range" id="countdownSec" min="3" max="10" step="1" value="3">
+                    <span id="countdownSecValue" style="width: 55px;">3秒</span>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">中断したらカウントを0に戻す:</span>
+                    <label class="chk"><input type="checkbox" id="autoResetEnabled" checked> 有効</label>
+                    <label class="chk"><input type="checkbox" id="autoResetOnLost" checked> 人が画面から消えた時もリセット</label>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">中断とみなす時間 (無動作が続いたら):</span>
+                    <input type="range" id="idleResetSec" min="10" max="150" step="5" value="30">
+                    <span id="idleResetSecValue" style="width: 55px;">3.0秒</span>
+                </div>
+
+                <div class="hint">
+                    <b>計測の流れ:</b> 全身が映っていない間は「カメラの前に立ってください」→ 全身を検出したら「3・2・1」のカウントダウン（この間に地面の高さを学習します）→「スタート！」の表示と同時に計測開始です。<br>
+                    ジャンプも縄の通過も検知されない状態が指定時間続くと、ジャンプ回数・縄跳び回数をどちらも0に戻して次の計測を始めます。<br>
+                    リセットの直前の値は「前回の記録」として画面に残ります。連続で何回跳べたかを1セットずつ計りたい場合に使ってください。
+                </div>
+            </div>
+            <!-- ▲▲▲ 計測の開始とリセット ▲▲▲ -->
+
+            <!-- ▼▼▼ 縄跳び判定セクション ▼▼▼ -->
+            <div class="rope-section">
+                <div class="slider-container">
+                    <span class="slider-label section-title">■ 縄跳び判定</span>
+                    <label class="chk"><input type="checkbox" id="ropeEnabled" checked> 有効</label>
+                    <label class="chk"><input type="checkbox" id="ropeShowZone" checked> 検出ゾーン表示</label>
+                    <label class="chk"><input type="checkbox" id="ropeShowMask"> 検出マスク表示</label>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label section-title">判定方式:</span>
+                    <select id="ropeMethod">
+                        <option value="wrist" selected>手首の回転 (骨格ランドマーク) - 推奨</option>
+                        <option value="motion">動き (周波数解析) - 色に依存しない</option>
+                        <option value="color">色 (赤や青の縄を検出)</option>
+                    </select>
+                </div>
+
+                <!-- 手首の回転モードの設定 -->
+                <div id="wristSettings">
+                    <div class="slider-container">
+                        <span class="slider-label">解析窓の長さ:</span>
+                        <input type="range" id="wristWindow" min="6" max="20" step="1" value="12">
+                        <span id="wristWindowValue" style="width: 55px;">1.2秒</span>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">回転とみなす最小の振れ幅 (胴の〇%):</span>
+                        <input type="range" id="wristMinAmp" min="5" max="150" step="5" value="30">
+                        <span id="wristMinAmpValue" style="width: 55px;">3.0%</span>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">ヒステリシス (誤カウント防止):</span>
+                        <input type="range" id="wristHyst" min="20" max="90" step="5" value="45">
+                        <span id="wristHystValue" style="width: 55px;">0.45</span>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">使う手首:</span>
+                        <select id="wristSide">
+                            <option value="both" selected>両手を合成 (推奨)</option>
+                            <option value="left">左手首のみ</option>
+                            <option value="right">右手首のみ</option>
+                        </select>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">手首の軌跡を表示:</span>
+                        <label class="chk"><input type="checkbox" id="wristShowTrail" checked> 有効</label>
+                    </div>
+                    <div class="hint">
+                        縄を回すと手首は<b>縄1回転につき小さな円を1周</b>描きます。その回転数を数える方式です。
+                        映像の画素をまったく見ないため、縄の色・太さ・床の模様・影の影響を受けません。<br>
+                        手首の座標を肩の中点を基準にした相対位置へ直し、胴の長さで正規化してから、
+                        直近の窓で主成分分析を行って回転の主軸を求めます。
+                        カメラの角度によって円は扁平な楕円に見えますが、主軸へ射影して数えるため、
+                        <b>ほぼ直線に潰れて見えても</b>カウントできます。<br>
+                        <b>多重度:</b> 着地から着地までの回転数がそのまま通過回数です。位相を小数で保持しているため、
+                        着地の瞬間が回転の途中でも±1のずれが出ません。<br>
+                        <b>必要な条件:</b> 手首が映っていること。全身が映る引きの画角なら問題ありません。
+                    </div>
+                </div>
+
+                <!-- 動き(周波数解析)モードの設定 -->
+                <div id="motionSettings">
+                    <div class="slider-container">
+                        <span class="slider-label">解析窓の長さ (長いほど正確・反応は遅い):</span>
+                        <input type="range" id="fftWindow" min="12" max="30" step="1" value="20">
+                        <span id="fftWindowValue" style="width: 55px;">2.0秒</span>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">動きとみなす明るさの変化:</span>
+                        <input type="range" id="motionDelta" min="4" max="40" step="1" value="12">
+                        <span id="motionDeltaValue" style="width: 45px;">12</span>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">解析解像度 (縄が細い場合は上げる):</span>
+                        <select id="motionRes">
+                            <option value="480">480 - 軽い</option>
+                            <option value="720" selected>720 - 標準</option>
+                            <option value="960">960 - 細い縄向け</option>
+                        </select>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">周期の信頼度しきい値:</span>
+                        <input type="range" id="ropeConfMin" min="20" max="80" step="5" value="35">
+                        <span id="ropeConfMinValue" style="width: 45px;">0.35</span>
+                    </div>
+                    <div class="slider-container">
+                        <span class="slider-label">体の領域をゾーンから除外:</span>
+                        <label class="chk"><input type="checkbox" id="excludeBody" checked> 有効 (重要)</label>
+                    </div>
+                    <div class="hint">
+                        足元ゾーンの<b>明るさの変化量</b>だけを時系列で取り、その繰り返し周期を自己相関(NSDF)で求めます。
+                        縄の色をまったく使いません。<br>
+                        <b>多重度の判定:</b> 「跳躍1回の周期 ÷ 縄1回転の周期」を四捨五入した値が、その跳躍での通過回数になります。
+                        三重跳びなら跳躍周期540ms・縄周期180msで 3 と判定されます。<br>
+                        <b>成否を分ける条件:</b> ゾーン内で<b>縄の動きが体の動きより目立つ</b>ことです。
+                        「体の領域を除外」は必ず有効にし、検出ゾーンは足裏より下の、縄だけが通る高さに合わせてください。
+                    </div>
+                </div>
+
+                <!-- 色モードの設定 -->
+                <div id="colorSettings" style="display:none;">
+                <div class="slider-container">
+                    <span class="slider-label">縄の色 (色相の中心):</span>
+                    <select id="ropeHueCenter">
+                        <option value="0" selected>赤 (0度)</option>
+                        <option value="25">オレンジ (25度)</option>
+                        <option value="55">黄 (55度)</option>
+                        <option value="110">黄緑・緑 (110度)</option>
+                        <option value="180">水色 (180度)</option>
+                        <option value="225">青・紺 (225度)</option>
+                        <option value="290">紫・ピンク (290度)</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">検出ゾーンの高さ (胴の〇%):</span>
+                    <input type="range" id="ropeZoneH" min="15" max="120" value="45">
+                    <span id="ropeZoneHValue" style="width: 45px;">45%</span>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">検出ゾーンの幅 (胴の〇%):</span>
+                    <input type="range" id="ropeZoneW" min="60" max="400" value="180">
+                    <span id="ropeZoneWValue" style="width: 45px;">180%</span>
+                </div>
+
+                <div id="colorSettings2" style="display:none;">
+                <div class="slider-container">
+                    <span class="slider-label">許容色相 (±〇度):</span>
+                    <input type="range" id="ropeHue" min="5" max="45" value="18">
+                    <span id="ropeHueValue" style="width: 45px;">18°</span>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">最低彩度 (〇%):</span>
+                    <input type="range" id="ropeSat" min="15" max="90" value="45">
+                    <span id="ropeSatValue" style="width: 45px;">45%</span>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">通過判定しきい値 (ゾーン面積の〇%):</span>
+                    <input type="range" id="ropeThreshold" min="1" max="100" value="8">
+                    <span id="ropeThresholdValue" style="width: 55px;">0.80%</span>
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">最小通過間隔 (連打防止 / ms):</span>
+                    <input type="range" id="ropeInterval" min="30" max="500" step="10" value="120">
+                    <span id="ropeIntervalValue" style="width: 55px;">120ms</span>
+                </div>
+
+                <div class="hint">
+                    色モードは、足元ゾーンに<b>指定色の画素が入り込んだ瞬間</b>を1回として数えます。
+                    常時写り込む同色（服・靴・背景）は自動でベースライン学習して差し引きます。
+                    「検出マスク表示」をONにして、<b>縄だけが水色でハイライトされる</b>ように色相・彩度を調整してください。
+                </div>
+                </div>
+            </div>
+            <!-- ▲▲▲ 縄跳び判定セクション ▲▲▲ -->
+
+        </div>
+    </div>
+
+    <div id="container">
+        <video id="videoElement" playsinline style="display: none;"></video>
+        <canvas id="outputCanvas"></canvas>
+
+        <div id="stats">
+            <div class="stat-line">状態: <span id="statusText">Waiting...</span></div>
+            <div class="stat-line" style="border-top: 1px dashed #666; padding-top: 10px;">
+                <span style="color:#ff007f;">ジャンプ回数:</span>
+                <span id="totalJump" class="highlight huge-number" style="color:#ff007f;">0</span>
+            </div>
+            <div class="stat-line" style="font-size: 0.9em;">連続回数: <span id="consecutiveCount" class="highlight" style="color:#ffcc00;">0</span></div>
+
+            <div class="stat-line" style="border-top: 1px dashed #666; padding-top: 10px;">
+                <span style="color:#ff9800;">縄跳び回数:</span>
+                <span id="totalRope" class="highlight huge-number" style="color:#ff9800;">0</span>
+            </div>
+            <div class="stat-line" style="font-size: 0.9em;">直近の跳躍: <span id="ropePerJump" class="highlight" style="color:#ff9800;">-</span></div>
+            <div class="stat-line" style="font-size: 0.85em;">縄の回転: <span id="ropeRateText" class="highlight" style="color:#ff9800;">-</span></div>
+            <div class="stat-line" style="font-size: 0.75em; color:#aaa;">信号: <span id="redRatioText">0.00%</span></div>
+            <div class="stat-line" style="font-size: 0.8em; border-top: 1px dashed #666; padding-top: 8px; color:#8bc34a;">
+                前回の記録: <span id="lastRecordText">-</span>
+            </div>
+        </div>
+
+        <canvas id="poseGraphCanvas" width="900" height="200"></canvas>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('outputCanvas');
+        const canvasCtx = canvasElement.getContext('2d');
+
+        const poseGraphCanvas = document.getElementById('poseGraphCanvas');
+        const poseCtx = poseGraphCanvas.getContext('2d');
+
+        const MAX_HISTORY = 300;
+        let graphHistory = [];
+
+        // UI要素の取得
+        const modeRadios = document.getElementsByName('inputMode');
+        const fileControls = document.getElementById('fileControls');
+        const cameraControls = document.getElementById('cameraControls');
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const videoUpload = document.getElementById('videoUpload');
+
+        const jumpThresholdInput = document.getElementById('jumpThreshold');
+        const seekSlider = document.getElementById('seekSlider');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const restartBtn = document.getElementById('restartBtn');
+
+        const statusText = document.getElementById('statusText');
+        const totalJumpText = document.getElementById('totalJump');
+        const consecutiveCountText = document.getElementById('consecutiveCount');
+        const jumpThresholdValueText = document.getElementById('jumpThresholdValue');
+
+        // --- 縄跳び用UI ---
+        const ropeEnabledInput = document.getElementById('ropeEnabled');
+        const ropeShowZoneInput = document.getElementById('ropeShowZone');
+        const ropeShowMaskInput = document.getElementById('ropeShowMask');
+        const ropeZoneHInput = document.getElementById('ropeZoneH');
+        const ropeZoneWInput = document.getElementById('ropeZoneW');
+        const ropeHueInput = document.getElementById('ropeHue');
+        const ropeSatInput = document.getElementById('ropeSat');
+        const ropeThresholdInput = document.getElementById('ropeThreshold');
+        const ropeIntervalInput = document.getElementById('ropeInterval');
+
+        const totalRopeText = document.getElementById('totalRope');
+        const ropePerJumpText = document.getElementById('ropePerJump');
+        const redRatioText = document.getElementById('redRatioText');
+
+        // ===== rev6: 動き(周波数解析)モード =====
+        const ropeMethodSelect = document.getElementById('ropeMethod');
+        const motionSettings = document.getElementById('motionSettings');
+        const colorSettings = document.getElementById('colorSettings');
+        const colorSettings2 = document.getElementById('colorSettings2');
+        const fftWindowInput = document.getElementById('fftWindow');
+        const motionDeltaInput = document.getElementById('motionDelta');
+        const motionResSelect = document.getElementById('motionRes');
+        const ropeConfMinInput = document.getElementById('ropeConfMin');
+        const excludeBodyInput = document.getElementById('excludeBody');
+        const ropeHueCenterSelect = document.getElementById('ropeHueCenter');
+        const ropeRateText = document.getElementById('ropeRateText');
+
+        // ===== rev8: 手首の回転による判定 =====
+        const wristSettings = document.getElementById('wristSettings');
+        const wristWindowInput = document.getElementById('wristWindow');
+        const wristMinAmpInput = document.getElementById('wristMinAmp');
+        const wristHystInput = document.getElementById('wristHyst');
+        const wristSideSelect = document.getElementById('wristSide');
+        const wristShowTrailInput = document.getElementById('wristShowTrail');
+
+        const LM_LEFT_WRIST = 15, LM_RIGHT_WRIST = 16;
+        const WRIST_VIS_MIN = 0.5;
+
+        let wristBuf = [];          // {t, lx, ly, lOk, rx, ry, rOk} 肩中心基準・胴長で正規化
+        let wristState = 0;         // シュミットトリガの状態 (+1 / -1)
+        let wristRevs = 0;          // 累計回転数(整数)
+        let wristPhase = 0;         // 累計回転数(小数)
+        let wristLastCross = null;  // 直前の立ち上がり時刻
+        let wristIntervals = [];    // 直近の1回転にかかった時間
+        let wristPeriodMs = null;
+        let wristAmp = 0;
+        let wristSNorm = 0;
+        let phaseAtLastLanding = null;
+        let wristAxis = null;       // 表示用: 回転の主軸
+
+        function resetWristAnalysis() {
+            wristBuf = []; wristState = 0; wristRevs = 0; wristPhase = 0;
+            wristLastCross = null; wristIntervals = []; wristPeriodMs = null;
+            wristAmp = 0; wristSNorm = 0; phaseAtLastLanding = null; wristAxis = null;
+        }
+
+        /* 窓内の手首軌跡から、主成分分析で回転の主軸を求めて射影する。
+           カメラ角度で円が扁平な楕円に見えても、主軸へ落とせば正弦波になる。 */
+        function analyzeWristWindow(buf, key) {
+            let n = 0, mx = 0, my = 0;
+            for (const p of buf) { if (p[key + 'Ok']) { mx += p[key + 'x']; my += p[key + 'y']; n++; } }
+            if (n < 8) return null;
+            mx /= n; my /= n;
+
+            let sxx = 0, syy = 0, sxy = 0;
+            for (const p of buf) {
+                if (!p[key + 'Ok']) continue;
+                const dx = p[key + 'x'] - mx, dy = p[key + 'y'] - my;
+                sxx += dx * dx; syy += dy * dy; sxy += dx * dy;
+            }
+            sxx /= n; syy /= n; sxy /= n;
+
+            // 2x2共分散行列の最大固有ベクトルを閉形式で求める
+            const tr = sxx + syy, det = sxx * syy - sxy * sxy;
+            const l1 = tr / 2 + Math.sqrt(Math.max(0, tr * tr / 4 - det));
+            let ux, uy;
+            if (Math.abs(sxy) > 1e-12) { ux = l1 - syy; uy = sxy; }
+            else { ux = (sxx >= syy) ? 1 : 0; uy = (sxx >= syy) ? 0 : 1; }
+            const un = Math.hypot(ux, uy) || 1; ux /= un; uy /= un;
+
+            let rms = 0;
+            const proj = [];
+            for (const p of buf) {
+                if (!p[key + 'Ok']) continue;
+                const v = (p[key + 'x'] - mx) * ux + (p[key + 'y'] - my) * uy;
+                proj.push(v); rms += v * v;
+            }
+            rms = Math.sqrt(rms / n);
+            return { mx, my, ux, uy, rms, proj, amp: rms * Math.SQRT2 };
+        }
+
+        /* 1フレーム分の手首サンプルを与えて、回転を数える。
+           戻り値の phase は小数を含む累計回転数。 */
+        function pushWristSample(nowMs, sample) {
+            const winMs = parseInt(wristWindowInput.value) * 100;
+            wristBuf.push(Object.assign({ t: nowMs }, sample));
+            while (wristBuf.length && wristBuf[0].t < nowMs - winMs) wristBuf.shift();
+
+            const side = wristSideSelect.value;
+            const minAmp = parseInt(wristMinAmpInput.value) / 1000.0;   // 30 → 0.030 (胴の3%)
+            const hyst = parseInt(wristHystInput.value) / 100.0;
+
+            const L = (side !== 'right') ? analyzeWristWindow(wristBuf, 'l') : null;
+            const R = (side !== 'left') ? analyzeWristWindow(wristBuf, 'r') : null;
+            const useL = L && L.amp >= minAmp;
+            const useR = R && R.amp >= minAmp;
+
+            if (!useL && !useR) {
+                wristAmp = Math.max(L ? L.amp : 0, R ? R.amp : 0);
+                wristSNorm = 0; wristAxis = null;
+                return false;
+            }
+
+            const cur = wristBuf[wristBuf.length - 1];
+            const projNow = (A, k) =>
+                ((cur[k + 'x'] - A.mx) * A.ux + (cur[k + 'y'] - A.my) * A.uy) / (A.rms || 1e-9);
+
+            if (useL && useR) {
+                // 主軸の符号は任意なので、2本の射影の相関で符号を揃えてから平均する
+                let c = 0;
+                const m = Math.min(L.proj.length, R.proj.length);
+                for (let i = 0; i < m; i++) {
+                    c += L.proj[L.proj.length - m + i] * R.proj[R.proj.length - m + i];
+                }
+                const sgn = c >= 0 ? 1 : -1;
+                wristSNorm = (projNow(L, 'l') + sgn * projNow(R, 'r')) / 2;
+                wristAmp = (L.amp + R.amp) / 2;
+                wristAxis = L;
+            } else if (useL) {
+                wristSNorm = projNow(L, 'l'); wristAmp = L.amp; wristAxis = L;
+            } else {
+                wristSNorm = projNow(R, 'r'); wristAmp = R.amp; wristAxis = R;
+            }
+
+            // シュミットトリガ: 低→高の遷移1回 = 手首1回転 = 縄1回転
+            let crossed = false;
+            if (wristState <= 0 && wristSNorm > hyst) {
+                wristState = 1;
+                wristRevs++;
+                crossed = true;
+                if (wristLastCross !== null) {
+                    const dt = nowMs - wristLastCross;
+                    if (dt > 60 && dt < 2000) {
+                        wristIntervals.push(dt);
+                        if (wristIntervals.length > 8) wristIntervals.shift();
+                    }
+                }
+                wristLastCross = nowMs;
+            } else if (wristState >= 0 && wristSNorm < -hyst) {
+                wristState = -1;
+            }
+
+            if (wristIntervals.length >= 2) {
+                const s = wristIntervals.slice().sort((a, b) => a - b);
+                wristPeriodMs = s[Math.floor(s.length / 2)];
+            }
+
+            // 小数の位相: 直前の立ち上がりからの経過を周期で割って足す。
+            // 着地の瞬間が回転の途中でも多重度が±1ずれないようにするための処理。
+            wristPhase = wristRevs;
+            if (wristPeriodMs && wristLastCross !== null) {
+                const f = (nowMs - wristLastCross) / wristPeriodMs;
+                wristPhase = wristRevs + Math.min(0.999, Math.max(0, f));
+            }
+            return crossed;
+        }
+
+        const RESAMPLE_DT = 20;          // 再標本化の間隔(ms)。ブラウザのフレーム間隔のゆらぎを吸収する
+        const NSDF_PEAK_FACTOR = 0.50;   // 最大ピークのこの割合を超える「最も短い周期」を基本周期とする
+        const PERIOD_MIN_MS = 90;        // 探索する縄周期の下限
+        const PERIOD_MAX_MS = 900;       // 上限
+        const ESTIMATE_EVERY_MS = 100;   // 周期推定を行う間隔
+
+        let motionBuf = [];              // {t, e} の時系列リング
+        let prevGray = null;             // 直前フレームのROIグレースケール
+        let prevRect = null;             // そのROIの矩形(解析キャンバス座標)
+        let ropePeriodMs = null;         // 推定した縄1回転の周期
+        let ropeConf = 0;                // 推定の信頼度(0-1)
+        let lastEstimateMs = -1e9;
+        let lastLandingMs = null;        // 直前の着地時刻(跳躍周期の算出用)
+        let jumpCycleMs = null;          // 跳躍1回の周期
+
+        function setRopeMethodUI() {
+            const m = ropeMethodSelect.value;
+            wristSettings.style.display  = (m === 'wrist')  ? 'block' : 'none';
+            motionSettings.style.display = (m === 'motion') ? 'block' : 'none';
+            colorSettings.style.display  = (m === 'color')  ? 'block' : 'none';
+            colorSettings2.style.display = (m === 'color')  ? 'block' : 'none';
+        }
+        ropeMethodSelect.addEventListener('change', () => { setRopeMethodUI(); resetRopeAnalysis(); });
+        [fftWindowInput, motionDeltaInput, motionResSelect, ropeConfMinInput, excludeBodyInput,
+         wristWindowInput, wristMinAmpInput, wristHystInput, wristSideSelect]
+            .forEach(el => el.addEventListener('change', resetRopeAnalysis));
+        setRopeMethodUI();
+
+        function resetRopeAnalysis() {
+            motionBuf = []; prevGray = null; prevRect = null;
+            ropePeriodMs = null; ropeConf = 0;
+            lastLandingMs = null; jumpCycleMs = null;
+            resetWristAnalysis();
+        }
+
+        /* 時系列を一定間隔(RESAMPLE_DT)の格子へ線形補間で並べ直す。
+           ブラウザのフレーム間隔は一定でないため、この処理が周期推定の前提になる。 */
+        function resampleUniform(buf, spanMs, nowMs) {
+            const n = Math.floor(spanMs / RESAMPLE_DT);
+            if (buf.length < 4) return null;
+            const t0 = nowMs - spanMs;
+            if (buf[0].t > t0 + RESAMPLE_DT) return null;   // 窓を満たすだけの履歴がまだない
+            const out = new Float64Array(n);
+            let j = 0;
+            for (let i = 0; i < n; i++) {
+                const t = t0 + i * RESAMPLE_DT;
+                while (j < buf.length - 2 && buf[j + 1].t < t) j++;
+                const a = buf[j], b = buf[j + 1];
+                const w = (b.t - a.t) > 0 ? (t - a.t) / (b.t - a.t) : 0;
+                out[i] = a.e + (b.e - a.e) * Math.max(0, Math.min(1, w));
+            }
+            return out;
+        }
+
+        /* NSDF (McLeod法の正規化二乗差関数) で基本周期を求める。
+           自己相関そのままだとラグが長いほど値が小さくなる偏りがあるため、正規化版を使う。 */
+        function estimatePeriod(x, loMs, hiMs) {
+            const n = x.length;
+            let mean = 0;
+            for (let i = 0; i < n; i++) mean += x[i];
+            mean /= n;
+            const v = new Float64Array(n);
+            let energy = 0;
+            for (let i = 0; i < n; i++) { v[i] = x[i] - mean; energy += v[i] * v[i]; }
+            if (energy < 1e-9) return { periodMs: null, conf: 0 };
+
+            const lo = Math.max(2, Math.floor(loMs / RESAMPLE_DT));
+            const hi = Math.min(Math.floor(n / 2), Math.ceil(hiMs / RESAMPLE_DT));
+            if (hi <= lo + 1) return { periodMs: null, conf: 0 };
+
+            const nsdf = new Float64Array(hi + 2);
+            for (let tau = lo - 1; tau <= hi + 1 && tau < n; tau++) {
+                let r = 0, ma = 0, mb = 0;
+                for (let i = 0; i + tau < n; i++) {
+                    r += v[i] * v[i + tau];
+                    ma += v[i] * v[i];
+                    mb += v[i + tau] * v[i + tau];
+                }
+                const m = ma + mb;
+                nsdf[tau] = m > 0 ? (2 * r / m) : 0;
+            }
+
+            // 極大をすべて拾い、最大値の NSDF_PEAK_FACTOR 倍を超える最短周期を採用する
+            const peaks = [];
+            for (let t = lo; t <= hi; t++) {
+                if (nsdf[t] > nsdf[t - 1] && nsdf[t] >= nsdf[t + 1]) peaks.push(t);
+            }
+            if (!peaks.length) return { periodMs: null, conf: 0 };
+            let mx = 0;
+            for (const t of peaks) if (nsdf[t] > mx) mx = nsdf[t];
+            const confMin = parseInt(ropeConfMinInput.value) / 100;
+            if (mx < confMin) return { periodMs: null, conf: mx };
+
+            for (const t of peaks) {
+                if (nsdf[t] >= NSDF_PEAK_FACTOR * mx && nsdf[t] >= confMin) {
+                    // 放物線補間でフレーム間の精度を出す
+                    const y0 = nsdf[t - 1], y1 = nsdf[t], y2 = nsdf[t + 1];
+                    const den = y0 - 2 * y1 + y2;
+                    const d = den !== 0 ? (y0 - y2) / (2 * den) : 0;
+                    return { periodMs: (t + d) * RESAMPLE_DT, conf: nsdf[t] };
+                }
+            }
+            return { periodMs: null, conf: mx };
+        }
+
+        // --- 計測開始/リセット用UI ---
+        const countdownSecInput = document.getElementById('countdownSec');
+        const autoResetEnabledInput = document.getElementById('autoResetEnabled');
+        const autoResetOnLostInput = document.getElementById('autoResetOnLost');
+        const idleResetSecInput = document.getElementById('idleResetSec');
+        const manualResetBtn = document.getElementById('manualResetBtn');
+        const lastRecordText = document.getElementById('lastRecordText');
+
+        let isCameraMode = false;
+        let currentStream = null;
+        let animationId = null;
+
+        // ===== rev4: スマホ対応 =====
+        const facingSelect = document.getElementById('facingSelect');
+        const deviceSelect = document.getElementById('deviceSelect');
+        const resolutionSelect = document.getElementById('resolutionSelect');
+        const perfSelect = document.getElementById('perfSelect');
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        const showGraphChk = document.getElementById('showGraphChk');
+        const keepAwakeChk = document.getElementById('keepAwakeChk');
+        const measureModeBtn = document.getElementById('measureModeBtn');
+        const measureExitBtn = document.getElementById('measureExitBtn');
+        const envPanel = document.getElementById('envPanel');
+        const envTitle = document.getElementById('envTitle');
+        const envBody = document.getElementById('envBody');
+        const envTable = document.getElementById('envTable');
+        const envAdvice = document.getElementById('envAdvice');
+        const envToggle = document.getElementById('envToggle');
+
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+                      || (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
+
+        // 解析まわりの負荷はスマホでは自動的に軽くする
+        let ANALYSIS_WIDTH_ACTIVE = isMobile ? 320 : 480;
+        let SAMPLE_STEP_ACTIVE = isMobile ? 3 : 2;
+
+        // スマホなら初期値をスマホ向けに寄せる
+        if (isMobile) {
+            perfSelect.value = "0";
+            resolutionSelect.value = "640x480";
+            showGraphChk.checked = false;
+
+            // スマホで開いた場合は最初からカメラモードにしておく
+            document.getElementById('modeCamera').checked = true;
+            isCameraMode = true;
+            fileControls.style.display = 'none';
+            cameraControls.style.display = 'block';
+        }
+
+        // ===== rev5: 動作環境の診断 =====
+        // Chromeは file:// と localhost以外の http:// ではカメラを完全に無効化する。
+        // 原因を利用者が自分で特定できるよう、起動時に項目ごとに判定して表示する。
+        let envIsFatal = false;
+
+        (function checkEnvironment() {
+            const ua = navigator.userAgent;
+            const isChrome = /Chrome\//.test(ua) && !/Edg\/|OPR\/|SamsungBrowser/.test(ua);
+            const isEdge = /Edg\//.test(ua);
+            const isSafari = /Safari/.test(ua) && !/Chrome\//.test(ua);
+            const browserName = isChrome ? "Google Chrome"
+                              : isEdge ? "Microsoft Edge"
+                              : isSafari ? "Safari"
+                              : "その他のブラウザ";
+
+            const host = location.hostname;
+            const isFileUrl = location.protocol === 'file:';
+            const isLocalHost = (host === 'localhost' || host === '127.0.0.1' || host === '[::1]');
+            const secure = window.isSecureContext === true;
+            const hasCameraApi = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            const libError = (window.__libError || []).length > 0;
+            const libLoaded = (typeof Pose !== 'undefined') && (typeof drawConnectors !== 'undefined');
+
+            const rows = [];
+            let worst = 'ok';   // ok → warn → ng
+            function mark(level) { if (level === 'ng') worst = 'ng'; else if (level === 'warn' && worst !== 'ng') worst = 'warn'; }
+            function add(label, level, text) {
+                const icon = level === 'ok' ? '✅' : (level === 'warn' ? '⚠️' : '❌');
+                const cls = level === 'ok' ? 'env-ok' : (level === 'warn' ? 'env-warn' : 'env-ng');
+                rows.push(`<tr><td>${label}</td><td class="${cls}">${icon} ${text}</td></tr>`);
+                mark(level);
+            }
+
+            add("ブラウザ", (isChrome || isEdge) ? 'ok' : 'warn',
+                browserName + (isChrome || isEdge ? "（動作確認済み）" : "（Chromeを推奨します）"));
+
+            if (isFileUrl) {
+                add("表示方法", 'ng', "ファイルを直接開いています (file://)");
+            } else if (location.protocol === 'https:') {
+                add("表示方法", 'ok', "HTTPS で配信されています");
+            } else if (isLocalHost) {
+                add("表示方法", 'ok', "localhost で配信されています");
+            } else {
+                add("表示方法", 'ng', "HTTPSではない http:// で開いています（" + location.origin + "）");
+            }
+
+            add("セキュアコンテキスト", secure ? 'ok' : 'ng',
+                secure ? "有効（カメラ利用の前提を満たしています）" : "無効（この状態ではカメラを使えません）");
+
+            add("カメラAPI", hasCameraApi ? 'ok' : 'ng',
+                hasCameraApi ? "navigator.mediaDevices が利用できます" : "navigator.mediaDevices がブラウザから隠されています");
+
+            if (libError || !libLoaded) {
+                add("MediaPipe", 'ng', "骨格推定ライブラリを読み込めませんでした");
+            } else {
+                add("MediaPipe", 'ok', "読み込み済み");
+            }
+
+            envTable.innerHTML = rows.join("");
+
+            // --- 状況に応じた対処法 ---
+            let advice = "";
+            if (isFileUrl) {
+                advice = `
+                <b>対処法：ローカルサーバー経由で開いてください。</b>
+                <p>Chromeはファイルを直接開いた状態ではカメラを許可せず、MediaPipeの読み込みも遮断します。
+                同じフォルダに置いた <code>serve.py</code> を使うのが簡単です。</p>
+                <ol>
+                    <li>このHTMLと <code>serve.py</code> を同じフォルダに置く</li>
+                    <li>そのフォルダでコマンドを実行する<br>
+                        Windows: <code>py serve.py</code> ／ Mac: <code>python3 serve.py</code></li>
+                    <li>表示された <code>http://localhost:8000/</code> をChromeで開く</li>
+                </ol>
+                <p>スマホから使う場合は、同じスクリプトの <code>--https</code> オプションを使ってください。
+                詳しい手順は同梱の <code>README_chrome.html</code> にあります。</p>`;
+            } else if (!secure || !hasCameraApi) {
+                advice = `
+                <b>対処法：HTTPS でアクセスしてください。</b>
+                <p>Chromeは <code>localhost</code> 以外の <code>http://</code> ではカメラを無効化します。
+                現在のアドレスは <code>${location.origin}</code> です。</p>
+                <ol>
+                    <li><b>PCで使う場合:</b> アドレスを <code>http://localhost:8000/</code> に変えて開き直す</li>
+                    <li><b>スマホで使う場合:</b> <code>serve.py --https</code> で起動し、表示される
+                        <code>https://（PCのIPアドレス）:8443/</code> を開く。証明書の警告画面では
+                        「詳細設定」→「（安全ではありません）にアクセスする」を選ぶ</li>
+                    <li><b>Android Chromeの代替手段:</b> アドレスバーに
+                        <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> と入力し、
+                        現在のアドレスを登録して Enabled にする（開発・検証用）</li>
+                </ol>`;
+            } else if (libError || !libLoaded) {
+                advice = `
+                <b>対処法：インターネット接続を確認してください。</b>
+                <p>骨格推定ライブラリを <code>cdn.jsdelivr.net</code> から読み込みます。
+                オフライン環境や、社内ネットワークの制限で遮断されている場合は動作しません。
+                接続を確認してページを再読み込みしてください。</p>`;
+            } else {
+                advice = `<p>カメラを利用できる状態です。「カメラを開始」を押して、
+                ブラウザの許可ダイアログで「許可」を選んでください。</p>`;
+            }
+
+            // ローカルサーバーで開いている場合はスマホ用のURLも案内する
+            if (!isFileUrl && isLocalHost) {
+                advice += `<p style="color:#bbb;">スマホから使う場合、<code>localhost</code> は
+                そのスマホ自身を指すためPCには繋がりません。
+                <code>serve.py --https</code> で起動してPCのIPアドレスでアクセスしてください。</p>`;
+            }
+
+            envAdvice.innerHTML = advice;
+
+            envPanel.classList.add(worst);
+            envTitle.innerText = worst === 'ok' ? "動作環境: 問題ありません"
+                               : worst === 'warn' ? "動作環境: 注意事項があります"
+                               : "動作環境: このままではカメラを使えません";
+
+            // 問題がある時は最初から詳細を開いておく
+            if (worst !== 'ok') envBody.style.display = 'block';
+
+            envIsFatal = !secure || !hasCameraApi || libError || !libLoaded;
+        })();
+
+        envToggle.addEventListener('click', () => {
+            envBody.style.display = (envBody.style.display === 'none') ? 'block' : 'none';
+        });
+
+        // --- 画面スリープ防止 (Screen Wake Lock API) ---
+        let wakeLock = null;
+        async function requestWakeLock() {
+            if (!keepAwakeChk.checked) return;
+            if (!('wakeLock' in navigator)) return;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => { wakeLock = null; });
+            } catch (err) {
+                console.warn('WakeLock取得に失敗:', err);
+            }
+        }
+        async function releaseWakeLock() {
+            try { if (wakeLock) await wakeLock.release(); } catch (e) {}
+            wakeLock = null;
+        }
+        // タブに戻ってきた時に取り直す (OSがロックを解放するため)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentStream) requestWakeLock();
+        });
+        keepAwakeChk.addEventListener('change', () => {
+            if (keepAwakeChk.checked) requestWakeLock(); else releaseWakeLock();
+        });
+
+        // --- グラフ表示の切替 ---
+        function applyGraphVisibility() {
+            poseGraphCanvas.classList.toggle('hidden-graph', !showGraphChk.checked);
+        }
+        showGraphChk.addEventListener('change', applyGraphVisibility);
+        applyGraphVisibility();
+
+        // --- 計測モード (操作パネルを隠して映像だけにする) ---
+        measureModeBtn.addEventListener('click', () => {
+            document.body.classList.add('measure-mode');
+            window.scrollTo(0, 0);
+        });
+        measureExitBtn.addEventListener('click', () => {
+            document.body.classList.remove('measure-mode');
+        });
+
+        let isJumping = false;
+        let groundY = null;
+        let groundHipY = null;
+        let prevAvgY = null;
+        let prevPrevAvgY = null;
+
+        let jumpThresholdMultiplier = 0.3;
+        let jumpCountVal = 0;
+        let consecutiveCount = 0;
+
+        // --- キャリブレーション / アイドル判定 (時間ベース) ---
+        let calibStartMs = null;         // キャリブレーション開始時刻
+        let isCalibrated = false;        // ジャンプ判定が有効か
+        let idleRefMs = null;            // 地面再学習(再キャリブレーション)用の基準時刻
+        const IDLE_RECALIB_MS = 2000;    // 無ジャンプがこの時間続いたら地面を学習し直す
+        let lostTrackingFrames = 0;
+        const LOST_RESET_THRESHOLD = 15;
+
+        // --- 中断時の自動リセット用 ---
+        let lastActivityMs = null;       // 最後にジャンプ or 縄通過を検知した時刻
+        let lastRecordJump = 0;          // ひとつ前の計測の記録
+        let lastRecordRope = 0;
+        let hasRecord = false;
+
+        function getNowMs() {
+            return isCameraMode ? performance.now() : (videoElement.currentTime * 1000);
+        }
+
+        // --- スタート演出 ---
+        const START_FLASH_MS = 1200;     // 「スタート！」を表示し続ける時間
+        let startFlashShownAt = null;    // 「スタート！」表示を開始した時刻
+
+        /* 画面中央に大きな文字を描く
+           text  : メインの文字 (「3」「スタート！」など)
+           sub   : 補足の小さい文字 (省略可)
+           color : 文字色
+           scale : キャンバス高さに対するメイン文字の大きさ比率 */
+        function drawCenterMessage(ctx, text, sub, color, scale) {
+            const w = canvasElement.width;
+            const h = canvasElement.height;
+            const fontSize = Math.round(h * scale);
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 背景の帯 (文字を読みやすくする)
+            const bandH = fontSize * 1.5;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.fillRect(0, h / 2 - bandH / 2, w, bandH);
+
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.lineWidth = Math.max(4, fontSize * 0.06);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.strokeText(text, w / 2, h / 2);
+            ctx.fillStyle = color;
+            ctx.fillText(text, w / 2, h / 2);
+
+            if (sub) {
+                const subSize = Math.max(14, Math.round(h * 0.035));
+                ctx.font = `bold ${subSize}px sans-serif`;
+                ctx.lineWidth = Math.max(3, subSize * 0.15);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+                ctx.strokeText(sub, w / 2, h / 2 + fontSize * 0.75);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(sub, w / 2, h / 2 + fontSize * 0.75);
+            }
+            ctx.restore();
+        }
+
+        // ===== 縄跳び(赤縄)検出用 定数・状態変数 =====
+        // ※ 実際に使う値は ANALYSIS_WIDTH_ACTIVE / SAMPLE_STEP_ACTIVE (端末と精度設定で変わる)
+        const ZONE_BELOW_GROUND = 0.18;  // 地面ラインより下に取るマージン(胴の長さ比)
+        const HYSTERESIS_RATIO = 0.55;   // 「縄が抜けた」と判定する比率(しきい値に対して)
+        const BASELINE_UP_RATE = 0.010;  // 赤ベースラインの上昇追従速度
+        const BASELINE_RESET_HOLD = 0.35;// 立ち上がり中はベースライン更新を止める
+
+        const analysisCanvas = document.createElement('canvas');
+        const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+
+        let ropeCountVal = 0;            // 縄跳び総回数(縄の通過回数)
+        let ropeActive = false;          // 現在ゾーン内に縄がいるか
+        let lastRopePassMs = -1e9;       // 直近の通過時刻
+        let passesInCurrentJump = 0;     // 現在の跳躍サイクル中の通過数
+        let lastJumpPasses = -1;         // 直近1跳躍あたりの通過数
+        let redRatioSmooth = 0;          // 平滑化した赤面積率
+        let redBaseline = 0;             // 常時写り込んでいる赤のベースライン
+        let ropeFlashFrames = 0;         // 通過時のUI点滅用
+        let ropeInitFrames = 0;          // ベースライン初期学習用(この間はカウントしない)
+        const ROPE_INIT_DURATION = 20;
+
+        // --- モード切替 ---
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                isCameraMode = (e.target.value === 'camera');
+                fileControls.style.display = isCameraMode ? 'none' : 'block';
+                cameraControls.style.display = isCameraMode ? 'block' : 'none';
+                stopCurrentSource();
+            });
+        });
+
+        // --- コントロールイベント ---
+        jumpThresholdInput.addEventListener('input', (e) => {
+            jumpThresholdMultiplier = parseInt(e.target.value) / 100.0;
+            jumpThresholdValueText.innerText = e.target.value + "%";
+        });
+
+        // 縄跳び系スライダーの表示更新
+        function bindSlider(input, output, formatter) {
+            const update = () => { output.innerText = formatter(input.value); };
+            input.addEventListener('input', update);
+            update();
+        }
+        bindSlider(ropeZoneHInput, document.getElementById('ropeZoneHValue'), v => v + "%");
+        bindSlider(ropeZoneWInput, document.getElementById('ropeZoneWValue'), v => v + "%");
+        bindSlider(ropeHueInput, document.getElementById('ropeHueValue'), v => v + "°");
+        bindSlider(ropeSatInput, document.getElementById('ropeSatValue'), v => v + "%");
+        bindSlider(ropeThresholdInput, document.getElementById('ropeThresholdValue'), v => (v / 10).toFixed(2) + "%");
+        bindSlider(ropeIntervalInput, document.getElementById('ropeIntervalValue'), v => v + "ms");
+        bindSlider(countdownSecInput, document.getElementById('countdownSecValue'), v => v + "秒");
+        bindSlider(idleResetSecInput, document.getElementById('idleResetSecValue'), v => (v / 10).toFixed(1) + "秒");
+        bindSlider(fftWindowInput, document.getElementById('fftWindowValue'), v => (v / 10).toFixed(1) + "秒");
+        bindSlider(motionDeltaInput, document.getElementById('motionDeltaValue'), v => v);
+        bindSlider(ropeConfMinInput, document.getElementById('ropeConfMinValue'), v => (v / 100).toFixed(2));
+        bindSlider(wristWindowInput, document.getElementById('wristWindowValue'), v => (v / 10).toFixed(1) + "秒");
+        bindSlider(wristMinAmpInput, document.getElementById('wristMinAmpValue'), v => (v / 10).toFixed(1) + "%");
+        bindSlider(wristHystInput, document.getElementById('wristHystValue'), v => (v / 100).toFixed(2));
+
+        function formatTime(seconds) {
+            if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // 跳躍回数に応じたラベル
+        function passesLabel(n) {
+            if (n < 0) return "-";
+            if (n === 0) return "0 (通過なし)";
+            if (n === 1) return "1 (一重跳び)";
+            if (n === 2) return "2 (二重跳び)";
+            if (n === 3) return "3 (三重跳び)";
+            return n + " (多重)";
+        }
+
+        function triggerRecalibration() {
+            isJumping = false;
+            groundY = null;
+            groundHipY = null;
+            prevAvgY = null;
+            prevPrevAvgY = null;
+            consecutiveCount = 0;
+            calibStartMs = null;
+            isCalibrated = false;
+            startFlashShownAt = null;
+            idleRefMs = null;
+            lostTrackingFrames = 0;
+            graphHistory = [];
+
+            // 縄跳び側の状態もリセット(総回数は保持)
+            ropeActive = false;
+            passesInCurrentJump = 0;
+            redRatioSmooth = 0;
+            redBaseline = 0;
+            ropeFlashFrames = 0;
+            ropeInitFrames = ROPE_INIT_DURATION;
+
+            consecutiveCountText.innerText = 0;
+            statusText.innerText = "Waiting for feet...";
+            statusText.style.color = "#aaa";
+        }
+
+        function resetAll() {
+            jumpCountVal = 0;
+            totalJumpText.innerText = 0;
+
+            ropeCountVal = 0;
+            lastJumpPasses = -1;
+            lastRopePassMs = -1e9;
+            totalRopeText.innerText = 0;
+            ropePerJumpText.innerText = "-";
+
+            lastActivityMs = null;
+            resetRopeAnalysis();
+
+            triggerRecalibration();
+        }
+
+        // 直前の計測結果を「前回の記録」として退避してから0に戻す
+        function resetCountsKeepingRecord(reason) {
+            if (jumpCountVal > 0 || ropeCountVal > 0) {
+                lastRecordJump = jumpCountVal;
+                lastRecordRope = ropeCountVal;
+                hasRecord = true;
+                lastRecordText.innerText =
+                    `ジャンプ ${lastRecordJump} / 縄 ${lastRecordRope}` + (reason ? ` (${reason})` : "");
+            }
+            resetAll();
+        }
+
+        manualResetBtn.addEventListener('click', () => {
+            resetCountsKeepingRecord("手動");
+        });
+
+        restartBtn.addEventListener('click', () => {
+            if (!isCameraMode && videoElement.src) {
+                videoElement.currentTime = 0;
+                videoElement.play();
+                resetAll();
+            }
+        });
+
+        seekSlider.addEventListener('input', (e) => {
+            if (!isCameraMode && videoElement.src && videoElement.duration) {
+                const targetTime = (e.target.value / 100) * videoElement.duration;
+                videoElement.currentTime = targetTime;
+                resetAll();
+            }
+        });
+
+        function stopCurrentSource() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            videoElement.pause();
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            videoElement.srcObject = null;
+            videoElement.src = '';
+            videoUpload.value = '';
+            switchCameraBtn.style.display = 'none';
+            releaseWakeLock();
+            resetAll();
+        }
+
+        // --- Webカメラの起動処理 (rev4: スマホの前面/背面カメラに対応) ---
+        async function startCamera() {
+            if (envIsFatal) {
+                envBody.style.display = 'block';
+                envPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                alert("現在の表示方法ではブラウザがカメラを許可しません。\n画面上部の「動作環境」の対処法をご確認ください。");
+                return;
+            }
+            stopCurrentSource();
+
+            const [rw, rh] = resolutionSelect.value.split('x').map(Number);
+            const chosenDevice = deviceSelect.value;
+
+            // deviceIdが選ばれていればそれを優先、なければfacingModeで指定する
+            const videoConstraints = chosenDevice
+                ? { deviceId: { exact: chosenDevice }, width: { ideal: rw }, height: { ideal: rh } }
+                : { facingMode: { ideal: facingSelect.value }, width: { ideal: rw }, height: { ideal: rh } };
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+            } catch (err) {
+                // 解像度やfacingModeが厳しすぎた場合は条件を緩めてもう一度試す
+                console.warn('指定条件で失敗したため条件を緩めて再試行:', err);
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                } catch (err2) {
+                    showCameraError(err2);
+                    return;
+                }
+            }
+
+            videoElement.srcObject = currentStream;
+            videoElement.muted = true;
+            videoElement.setAttribute('playsinline', '');   // iOSで全画面に飛ばさない
+
+            await refreshDeviceList();
+            switchCameraBtn.style.display = 'inline-block';
+            requestWakeLock();
+
+            videoElement.onloadeddata = () => {
+                videoElement.play();
+                applyPerfSettings();
+                processVideo();
+            };
+        }
+
+        function showCameraError(err) {
+            let msg = "カメラを起動できませんでした。\n\n";
+            switch (err && err.name) {
+                case 'NotAllowedError':
+                case 'SecurityError':
+                    msg += "カメラの使用が許可されていません。\nブラウザのアドレスバーの鍵アイコンなどから、このサイトのカメラを「許可」に変更してください。";
+                    break;
+                case 'NotFoundError':
+                case 'DevicesNotFoundError':
+                    msg += "使用できるカメラが見つかりませんでした。";
+                    break;
+                case 'NotReadableError':
+                    msg += "他のアプリがカメラを使用中の可能性があります。\nカメラアプリやビデオ通話アプリを終了してからもう一度お試しください。";
+                    break;
+                case 'OverconstrainedError':
+                    msg += "指定した解像度またはカメラに対応していません。\n解像度を「低」に変更してお試しください。";
+                    break;
+                default:
+                    msg += "(" + (err && err.name ? err.name : "不明なエラー") + ")\n"
+                         + "ページがHTTPSで開かれているかご確認ください。スマホではHTTPS以外でカメラは使用できません。";
+            }
+            alert(msg);
+            console.error(err);
+        }
+
+        // 許可後はデバイス名が取れるようになるので、カメラ一覧を作り直す
+        async function refreshDeviceList() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cams = devices.filter(d => d.kind === 'videoinput');
+                if (cams.length <= 1) { deviceSelect.style.display = 'none'; return; }
+
+                const current = deviceSelect.value;
+                deviceSelect.innerHTML = '<option value="">自動 (上の選択に従う)</option>';
+                cams.forEach((c, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = c.deviceId;
+                    opt.textContent = c.label || `カメラ ${i + 1}`;
+                    deviceSelect.appendChild(opt);
+                });
+                deviceSelect.value = current;
+                deviceSelect.style.display = 'inline-block';
+            } catch (e) {
+                console.warn('デバイス一覧の取得に失敗:', e);
+            }
+        }
+
+        startCameraBtn.addEventListener('click', startCamera);
+
+        // 前面 / 背面の入れ替え
+        switchCameraBtn.addEventListener('click', () => {
+            facingSelect.value = (facingSelect.value === 'environment') ? 'user' : 'environment';
+            deviceSelect.value = '';   // 個別指定は解除してfacingModeで選び直す
+            startCamera();
+        });
+
+        // 設定を変えたら即座にカメラを開き直す
+        [facingSelect, deviceSelect, resolutionSelect].forEach(el => {
+            el.addEventListener('change', () => { if (currentStream) startCamera(); });
+        });
+
+        // 骨格推定の精度設定
+        function applyPerfSettings() {
+            const level = parseInt(perfSelect.value);
+            if (pose) pose.setOptions({
+                modelComplexity: level,
+                smoothLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            // 軽量モードでは色解析も粗くして負荷を下げる
+            ANALYSIS_WIDTH_ACTIVE = (level === 0) ? 320 : 480;
+            SAMPLE_STEP_ACTIVE = (level === 0) ? 3 : 2;
+        }
+        perfSelect.addEventListener('change', applyPerfSettings);
+
+        // --- 動画ファイルの読み込み処理 ---
+        videoUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            stopCurrentSource();
+
+            const url = URL.createObjectURL(file);
+            videoElement.src = url;
+            videoElement.muted = false;
+
+            resetAll();
+
+            videoElement.onloadeddata = () => {
+                videoElement.play();
+                processVideo();
+            };
+        });
+
+        // --- 星マーク描画用関数 ---
+        function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, color) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx;
+            let y = cy;
+            let step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        /* =========================================================
+           rev6: 色を使わない動き検出
+           ゾーン内で「明るさが変化した画素の割合」を返す。
+           bodyBox が渡されたらその矩形(脚・靴)は計算から外す。
+           直前フレームと比較するため、ROI矩形は4画素単位に量子化して安定させる。
+           ========================================================= */
+        function computeMotionEnergy(sourceImage, zone, bodyBox) {
+            const aw = parseInt(motionResSelect.value);
+            const ah = Math.max(1, Math.round(aw * canvasElement.height / canvasElement.width));
+            if (analysisCanvas.width !== aw || analysisCanvas.height !== ah) {
+                analysisCanvas.width = aw; analysisCanvas.height = ah;
+                prevGray = null; prevRect = null;
+            }
+            analysisCtx.drawImage(sourceImage, 0, 0, aw, ah);
+
+            const q = v => Math.round(v / 4) * 4;
+            const px0 = Math.max(0, q(zone.x0 * aw)), px1 = Math.min(aw, q(zone.x1 * aw));
+            const py0 = Math.max(0, q(zone.y0 * ah)), py1 = Math.min(ah, q(zone.y1 * ah));
+            const rw = px1 - px0, rh = py1 - py0;
+            if (rw < 8 || rh < 4) { prevGray = null; prevRect = null; return { energy: 0, valid: false }; }
+
+            let img;
+            try { img = analysisCtx.getImageData(px0, py0, rw, rh); }
+            catch (err) { return { energy: 0, valid: false, error: true }; }
+
+            const d = img.data;
+            const gray = new Uint8Array(rw * rh);
+            for (let i = 0, p = 0; i < gray.length; i++, p += 4) {
+                gray[i] = (d[p] * 29 + d[p + 1] * 150 + d[p + 2] * 77) >> 8;   // 輝度のみ
+            }
+
+            const rectKey = px0 + ':' + py0 + ':' + rw + ':' + rh;
+            if (!prevGray || prevRect !== rectKey) {
+                prevGray = gray; prevRect = rectKey;
+                return { energy: 0, valid: false, rect: { px0, py0, rw, rh }, analysisW: aw, analysisH: ah };
+            }
+
+            let bx0 = -1, bx1 = -1, by0 = -1, by1 = -1;
+            if (bodyBox && excludeBodyInput.checked) {
+                bx0 = Math.floor(bodyBox.x0 * aw) - px0; bx1 = Math.ceil(bodyBox.x1 * aw) - px0;
+                by0 = Math.floor(bodyBox.y0 * ah) - py0; by1 = Math.ceil(bodyBox.y1 * ah) - py0;
+            }
+
+            const thr = parseInt(motionDeltaInput.value);
+            let changed = 0, total = 0;
+            for (let y = 0; y < rh; y++) {
+                const inBandY = (by0 >= 0 && y >= by0 && y < by1);
+                const row = y * rw;
+                for (let x = 0; x < rw; x++) {
+                    if (inBandY && x >= bx0 && x < bx1) continue;
+                    total++;
+                    const diff = gray[row + x] - prevGray[row + x];
+                    if (diff > thr || diff < -thr) changed++;
+                }
+            }
+            prevGray = gray; prevRect = rectKey;
+            return {
+                energy: total > 0 ? changed / total : 0,
+                valid: total > 0,
+                rect: { px0, py0, rw, rh },
+                bodyRect: bx0 >= 0 ? { bx0, by0, bx1, by1 } : null,
+                analysisW: aw, analysisH: ah
+            };
+        }
+
+        /* =========================================================
+           縄跳び検出: 足元ゾーン内の指定色の画素の面積率を求める
+           sourceImage : MediaPipeが返す生フレーム(骨格描画前)
+           戻り値      : { ratio, roi, maskPoints }
+           ========================================================= */
+        function analyzeRedInZone(sourceImage, zone, needMask) {
+            const aw = ANALYSIS_WIDTH_ACTIVE;
+            const ah = Math.max(1, Math.round(aw * canvasElement.height / canvasElement.width));
+            if (analysisCanvas.width !== aw || analysisCanvas.height !== ah) {
+                analysisCanvas.width = aw;
+                analysisCanvas.height = ah;
+            }
+            // 骨格やガイド線を含まない「生映像」を縮小して転写
+            analysisCtx.drawImage(sourceImage, 0, 0, aw, ah);
+
+            const px0 = Math.max(0, Math.floor(zone.x0 * aw));
+            const px1 = Math.min(aw, Math.ceil(zone.x1 * aw));
+            const py0 = Math.max(0, Math.floor(zone.y0 * ah));
+            const py1 = Math.min(ah, Math.ceil(zone.y1 * ah));
+
+            const rw = px1 - px0, rh = py1 - py0;
+            if (rw < 2 || rh < 2) return { ratio: 0, maskPoints: null };
+
+            let img;
+            try {
+                img = analysisCtx.getImageData(px0, py0, rw, rh);
+            } catch (err) {
+                // クロスオリジン動画などでピクセルが読めない場合
+                return { ratio: 0, maskPoints: null, error: true };
+            }
+
+            const d = img.data;
+            const hueTol = parseInt(ropeHueInput.value);
+            const hueCenter = parseInt(ropeHueCenterSelect.value);
+            const satMin = parseInt(ropeSatInput.value) / 100.0;
+
+            let redCount = 0, total = 0;
+            const maskPoints = needMask ? [] : null;
+
+            const step = SAMPLE_STEP_ACTIVE;
+            for (let y = 0; y < rh; y += step) {
+                const rowBase = y * rw;
+                for (let x = 0; x < rw; x += step) {
+                    const i = (rowBase + x) * 4;
+                    const r = d[i], g = d[i + 1], b = d[i + 2];
+                    total++;
+
+                    const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+                    if (mx < 50) continue;              // 暗すぎる画素は無視
+                    const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+                    const delta = mx - mn;
+                    if (delta === 0) continue;
+                    const sat = delta / mx;
+                    if (sat < satMin) continue;         // 彩度が低い(白っぽい/灰色)は無視
+
+                    // 色相を算出 (max === r のケース)
+                    let hue = 60 * (mx === r ? (((g - b) / delta) % 6)
+                                  : mx === g ? ((b - r) / delta + 2)
+                                             : ((r - g) / delta + 4));
+                    if (hue < 0) hue += 360;
+
+                    // rev6: 色相の中心を選べるようにする(赤以外の縄に対応)
+                    let dh = Math.abs(hue - hueCenter);
+                    if (dh > 180) dh = 360 - dh;
+                    if (dh <= hueTol) {
+                        redCount++;
+                        if (maskPoints) maskPoints.push((px0 + x) / aw, (py0 + y) / ah);
+                    }
+                }
+            }
+
+            return { ratio: total > 0 ? redCount / total : 0, maskPoints: maskPoints };
+        }
+
+        // --- ジャンプ判定グラフの描画 ---
+        function drawPoseGraph() {
+            // rev4: 非表示のときは描画自体を行わない(スマホの負荷軽減)
+            if (!showGraphChk.checked) return;
+
+            const w = poseGraphCanvas.width;
+            const h = poseGraphCanvas.height;
+            poseCtx.clearRect(0, 0, w, h);
+
+            if (graphHistory.length === 0) return;
+
+            const step = w / MAX_HISTORY;
+            const maxVal = 0.5;
+            const minVal = -0.1;
+            const range = maxVal - minVal;
+
+            function getY(val) {
+                return h - ((val - minVal) / range) * h;
+            }
+
+            // 縄グラフ用スケール(グラフ下部45%に描画)
+            const lastThresh = graphHistory[graphHistory.length - 1].ropeThresh || 0.008;
+            const ropeMax = Math.max(0.004, lastThresh * 3.0);
+            const ropeArea = h * 0.45;
+            function getRopeY(val) {
+                const frac = Math.min(1, Math.max(0, val / ropeMax));
+                return h - frac * ropeArea;
+            }
+
+            for (let i = 0; i < graphHistory.length; i++) {
+                if (graphHistory[i].isJumping) {
+                    poseCtx.fillStyle = 'rgba(0, 255, 204, 0.15)';
+                    poseCtx.fillRect(i * step, 0, step + 1, h);
+                }
+            }
+
+            const zeroY = getY(0);
+            poseCtx.beginPath();
+            poseCtx.moveTo(0, zeroY); poseCtx.lineTo(w, zeroY);
+            poseCtx.strokeStyle = 'lime'; poseCtx.lineWidth = 1; poseCtx.stroke();
+
+            poseCtx.beginPath();
+            poseCtx.strokeStyle = 'rgba(255, 50, 50, 0.8)';
+            poseCtx.setLineDash([5, 5]);
+            for (let i = 0; i < graphHistory.length; i++) {
+                const x = i * step;
+                const y = getY(graphHistory[i].thresh);
+                if (i === 0) poseCtx.moveTo(x, y); else poseCtx.lineTo(x, y);
+            }
+            poseCtx.stroke();
+            poseCtx.setLineDash([]);
+
+            poseCtx.beginPath();
+            poseCtx.strokeStyle = 'white';
+            poseCtx.lineWidth = 2;
+            for (let i = 0; i < graphHistory.length; i++) {
+                const x = i * step;
+                const y = getY(graphHistory[i].avgH);
+                if (i === 0) poseCtx.moveTo(x, y); else poseCtx.lineTo(x, y);
+            }
+            poseCtx.stroke();
+
+            // ===== 縄跳び関連の描画 =====
+            const lastH = graphHistory[graphHistory.length - 1];
+            const motionMode = lastH.motionMode;
+            const wristMode = lastH.wristMode;
+            if (ropeEnabledInput.checked && wristMode) {
+                // rev8: 手首の射影(白に近い水色)と、回転成立の▼マーカー
+                const area = h * 0.45;
+                poseCtx.beginPath();
+                poseCtx.strokeStyle = '#4fc3f7';
+                poseCtx.lineWidth = 2;
+                for (let i = 0; i < graphHistory.length; i++) {
+                    const x = i * step;
+                    // 射影値(±2程度)を下部45%の帯へ収める
+                    const v = Math.max(-2, Math.min(2, graphHistory[i].ropeSignal));
+                    const y = h - area / 2 - (v / 2) * (area / 2);
+                    if (i === 0) poseCtx.moveTo(x, y); else poseCtx.lineTo(x, y);
+                }
+                poseCtx.stroke();
+
+                // ヒステリシスの上下限
+                const hy = parseInt(wristHystInput.value) / 100;
+                poseCtx.setLineDash([4, 4]);
+                poseCtx.strokeStyle = 'rgba(255,152,0,0.5)';
+                poseCtx.lineWidth = 1;
+                for (const sgn of [1, -1]) {
+                    const y = h - area / 2 - (sgn * hy / 2) * (area / 2);
+                    poseCtx.beginPath(); poseCtx.moveTo(0, y); poseCtx.lineTo(w, y); poseCtx.stroke();
+                }
+                poseCtx.setLineDash([]);
+
+                for (let i = 0; i < graphHistory.length; i++) {
+                    if (!graphHistory[i].ropePass) continue;
+                    const x = i * step;
+                    poseCtx.beginPath();
+                    poseCtx.moveTo(x - 6, h - 2); poseCtx.lineTo(x + 6, h - 2); poseCtx.lineTo(x, h - 13);
+                    poseCtx.closePath(); poseCtx.fillStyle = '#ff9800'; poseCtx.fill();
+                }
+
+                poseCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                poseCtx.fillRect(10, 38, 530, 25);
+                poseCtx.font = '14px sans-serif';
+                poseCtx.fillStyle = '#4fc3f7';
+                poseCtx.fillText("ー 手首の回転(主軸への射影)", 15, 55);
+                poseCtx.fillStyle = '#ff9800';
+                poseCtx.fillText(`▼ 1回転  ${lastH.wristRate ? lastH.wristRate.toFixed(1) + "回/秒" : "-"}  振れ幅 ${(lastH.wristAmp*100).toFixed(1)}%`, 230, 55);
+            } else if (ropeEnabledInput.checked && motionMode) {
+                // rev6: 動きの量(オレンジ実線)。スケールは窓内の最大値に自動で合わせる
+                let mx = 0.0001;
+                for (let i = 0; i < graphHistory.length; i++) mx = Math.max(mx, graphHistory[i].ropeSignal);
+                const area = h * 0.45;
+                poseCtx.beginPath();
+                poseCtx.strokeStyle = '#ff9800';
+                poseCtx.lineWidth = 2;
+                for (let i = 0; i < graphHistory.length; i++) {
+                    const x = i * step;
+                    const y = h - Math.min(1, graphHistory[i].ropeSignal / mx) * area;
+                    if (i === 0) poseCtx.moveTo(x, y); else poseCtx.lineTo(x, y);
+                }
+                poseCtx.stroke();
+
+                // 推定した縄の回転数(水色の実線, 0〜8回/秒を下部45%へ)
+                poseCtx.beginPath();
+                poseCtx.strokeStyle = '#4fc3f7';
+                poseCtx.lineWidth = 2;
+                let started = false;
+                for (let i = 0; i < graphHistory.length; i++) {
+                    const r = graphHistory[i].ropeRate;
+                    if (!r) { started = false; continue; }
+                    const x = i * step;
+                    const y = h - Math.min(1, r / 8.0) * area;
+                    if (!started) { poseCtx.moveTo(x, y); started = true; } else poseCtx.lineTo(x, y);
+                }
+                poseCtx.stroke();
+
+                const last = graphHistory[graphHistory.length - 1];
+                poseCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                poseCtx.fillRect(10, 38, 530, 25);
+                poseCtx.fillStyle = '#ff9800';
+                poseCtx.font = '14px sans-serif';
+                poseCtx.fillText("ー 足元の動きの量", 15, 55);
+                poseCtx.fillStyle = '#4fc3f7';
+                poseCtx.fillText(`ー 縄の回転数 ${last.ropeRate ? last.ropeRate.toFixed(1) + "回/秒" : "-"} (信頼度 ${last.ropeConf.toFixed(2)})`, 170, 55);
+            } else if (ropeEnabledInput.checked) {
+                // 縄通過しきい値 (オレンジ点線)
+                poseCtx.beginPath();
+                poseCtx.strokeStyle = 'rgba(255, 152, 0, 0.6)';
+                poseCtx.lineWidth = 1;
+                poseCtx.setLineDash([4, 4]);
+                for (let i = 0; i < graphHistory.length; i++) {
+                    const x = i * step;
+                    const y = getRopeY(graphHistory[i].ropeThresh);
+                    if (i === 0) poseCtx.moveTo(x, y); else poseCtx.lineTo(x, y);
+                }
+                poseCtx.stroke();
+                poseCtx.setLineDash([]);
+
+                // 赤検出量(ベースライン差分) オレンジ実線
+                poseCtx.beginPath();
+                poseCtx.strokeStyle = '#ff9800';
+                poseCtx.lineWidth = 2;
+                for (let i = 0; i < graphHistory.length; i++) {
+                    const x = i * step;
+                    const y = getRopeY(graphHistory[i].ropeSignal);
+                    if (i === 0) poseCtx.moveTo(x, y); else poseCtx.lineTo(x, y);
+                }
+                poseCtx.stroke();
+
+                // 縄通過イベント: 縦線 + ▼マーカー
+                for (let i = 0; i < graphHistory.length; i++) {
+                    if (graphHistory[i].ropePass) {
+                        const x = i * step;
+                        poseCtx.beginPath();
+                        poseCtx.moveTo(x, 0); poseCtx.lineTo(x, h);
+                        poseCtx.strokeStyle = 'rgba(255, 152, 0, 0.45)';
+                        poseCtx.lineWidth = 2;
+                        poseCtx.stroke();
+
+                        poseCtx.beginPath();
+                        poseCtx.moveTo(x - 6, h - 2);
+                        poseCtx.lineTo(x + 6, h - 2);
+                        poseCtx.lineTo(x, h - 13);
+                        poseCtx.closePath();
+                        poseCtx.fillStyle = '#ff9800';
+                        poseCtx.fill();
+                    }
+                }
+            }
+
+            for (let i = 0; i < graphHistory.length; i++) {
+                if (graphHistory[i].descendingStart) {
+                    const x = i * step;
+                    const y = getY(graphHistory[i].avgH);
+                    poseCtx.beginPath();
+                    poseCtx.arc(x, y, 8, 0, Math.PI * 2);
+                    poseCtx.strokeStyle = '#00ffff';
+                    poseCtx.lineWidth = 2;
+                    poseCtx.stroke();
+                }
+            }
+
+            for (let i = 0; i < graphHistory.length; i++) {
+                if (graphHistory[i].jumpTriggered) {
+                    const x = i * step;
+                    const y = getY(graphHistory[i].avgH);
+                    drawStar(poseCtx, x, y, 5, 5, 2.5, 'yellow');
+                }
+            }
+
+            // 凡例
+            poseCtx.fillStyle = 'rgba(0,0,0,0.6)';
+            poseCtx.fillRect(10, 10, 530, 25);
+            poseCtx.fillStyle = 'white';
+            poseCtx.font = '14px sans-serif';
+            poseCtx.fillText("ー 足首と腰の平均高さ", 15, 27);
+            poseCtx.fillStyle = '#ff3333';
+            poseCtx.fillText("- - 平均ジャンプ判定ライン", 180, 27);
+            poseCtx.fillStyle = '#00ffff';
+            poseCtx.fillText("○ 下降開始", 370, 27);
+            poseCtx.fillStyle = 'yellow';
+            poseCtx.fillText("★ 判定成立", 460, 27);
+
+            if (ropeEnabledInput.checked && !motionMode && !wristMode) {
+                poseCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                poseCtx.fillRect(10, 38, 530, 25);
+                poseCtx.fillStyle = '#ff9800';
+                poseCtx.fillText("ー 色(縄)の検出量", 15, 55);
+                poseCtx.fillText("- - 通過しきい値", 180, 55);
+                poseCtx.fillText("▼ 縄の通過(カウント)", 320, 55);
+            }
+        }
+
+        // rev5: ライブラリが読み込めていない場合でもページ全体が停止しないようにする
+        let pose = null;
+        if (typeof Pose !== 'undefined') {
+            pose = new Pose({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }});
+            applyPerfSettings();   // modelComplexity は「処理の重さ」の選択値に従う
+            pose.onResults(onResults);
+        } else {
+            startCameraBtn.disabled = true;
+            videoUpload.disabled = true;
+            startCameraBtn.innerText = "ライブラリ未読込のため使用できません";
+        }
+
+        function onResults(results) {
+            if (canvasElement.width !== videoElement.videoWidth) {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+            }
+
+            const nowMs = getNowMs();
+            const idleResetMs = parseInt(idleResetSecInput.value) * 100; // スライダー30 → 3.0秒 → 3000ms
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            let isVisible = false;
+            let leftAnkle, rightAnkle, leftHip, rightHip, leftShoulder, rightShoulder;
+
+            if (results.poseLandmarks) {
+                leftAnkle = results.poseLandmarks[27];
+                rightAnkle = results.poseLandmarks[28];
+                leftHip = results.poseLandmarks[23];
+                rightHip = results.poseLandmarks[24];
+                leftShoulder = results.poseLandmarks[11];
+                rightShoulder = results.poseLandmarks[12];
+
+                if (leftAnkle.visibility > 0.4 && leftHip.visibility > 0.4 && leftShoulder.visibility > 0.4) {
+                    isVisible = true;
+                    drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: 'rgba(0, 255, 0, 0.4)', lineWidth: 2});
+                }
+            }
+
+            if (!isVisible) {
+                lostTrackingFrames++;
+                if (lostTrackingFrames > LOST_RESET_THRESHOLD) {
+                    // 人が画面から消えた場合の自動リセット
+                    if (autoResetEnabledInput.checked && autoResetOnLostInput.checked &&
+                        (jumpCountVal > 0 || ropeCountVal > 0)) {
+                        resetCountsKeepingRecord("画面から消失");
+                    } else if (isCalibrated) {
+                        triggerRecalibration();
+                    }
+                    // カウントダウン中に見失った場合は最初からやり直す
+                    calibStartMs = null;
+                    startFlashShownAt = null;
+                    isCalibrated = false;
+
+                    drawCenterMessage(canvasCtx, "カメラの前に立ってください", "全身が映る位置まで下がってください", "#00ffcc", 0.085);
+                    statusText.innerText = "Waiting for player...";
+                    statusText.style.color = "#aaa";
+                }
+                canvasCtx.restore();
+                return;
+            } else {
+                lostTrackingFrames = 0;
+            }
+
+            const currentAnklesY = (leftAnkle.y + rightAnkle.y) / 2.0;
+            const currentHipY = (leftHip.y + rightHip.y) / 2.0;
+            const currentAvgY = (currentAnklesY + currentHipY) / 2.0;
+
+            const midShoulderX = (leftShoulder.x + rightShoulder.x) / 2.0;
+            const midShoulderY = (leftShoulder.y + rightShoulder.y) / 2.0;
+            const midHipX = (leftHip.x + rightHip.x) / 2.0;
+            const aspect = canvasElement.width / canvasElement.height;
+            const torsoLength = Math.hypot((midShoulderX - midHipX) * aspect, midShoulderY - currentHipY);
+
+            // --- 中断検知による自動リセット ---
+            // (キャリブレーション中も動作させたいのでウォームアップ判定より前に置く)
+            if (lastActivityMs === null) lastActivityMs = nowMs;
+            const idleElapsed = nowMs - lastActivityMs;
+
+            if (autoResetEnabledInput.checked && idleElapsed > idleResetMs &&
+                (jumpCountVal > 0 || ropeCountVal > 0)) {
+                resetCountsKeepingRecord("中断");
+                lastActivityMs = nowMs;
+                canvasCtx.restore();
+                return;
+            }
+
+            // --- スタートカウントダウン (この間に地面の基準を学習する) ---
+            const countdownMs = parseInt(countdownSecInput.value) * 1000;
+            if (calibStartMs === null) calibStartMs = nowMs;
+            const calibElapsed = nowMs - calibStartMs;
+
+            if (calibElapsed < countdownMs) {
+                isCalibrated = false;
+                groundY = currentAnklesY;
+                groundHipY = currentHipY;
+                prevAvgY = currentAvgY;
+                prevPrevAvgY = currentAvgY;
+
+                // 残り時間を秒に切り上げて 3 → 2 → 1 と表示
+                const remainSec = Math.ceil((countdownMs - calibElapsed) / 1000);
+                const frac = ((countdownMs - calibElapsed) % 1000) / 1000; // 1秒ごとの進み具合
+                const pop = 0.16 + 0.05 * frac;  // 数字が切り替わる瞬間に少し大きく見せる
+
+                drawCenterMessage(canvasCtx, String(remainSec), "位置について", "#ffcc00", pop);
+                statusText.innerText = "Ready... " + remainSec;
+                statusText.style.color = "#ffcc00";
+
+                canvasCtx.restore();
+                return;
+            }
+
+            // カウントダウンが終わった最初のフレームで「スタート！」の表示を始める
+            if (!isCalibrated) {
+                startFlashShownAt = nowMs;
+                statusText.innerText = "START!";
+                statusText.style.color = "#00ffcc";
+            }
+            isCalibrated = true;
+
+            // --- 無ジャンプが続いたら地面を学習し直す ---
+            // 判定を止めずに基準だけ引き直す(ソフト再キャリブレーション)。
+            // 従来のように計測を止めると、跳び始めの数回を取りこぼすため。
+            if (!isJumping) {
+                if (idleRefMs === null) idleRefMs = nowMs;
+                if (nowMs - idleRefMs > IDLE_RECALIB_MS) {
+                    idleRefMs = nowMs;
+                    groundY = currentAnklesY;
+                    groundHipY = currentHipY;
+                    prevAvgY = currentAvgY;
+                    prevPrevAvgY = currentAvgY;
+                    consecutiveCount = 0;
+                    consecutiveCountText.innerText = 0;
+                    statusText.innerText = "Ready (re-calibrated)";
+                    statusText.style.color = "#aaa";
+                }
+            } else {
+                idleRefMs = nowMs;
+            }
+
+            if (groundY === null) {
+                groundY = currentAnklesY;
+                groundHipY = currentHipY;
+            }
+
+            if (currentAnklesY > groundY) {
+                groundY = currentAnklesY;
+                groundHipY = currentHipY;
+            } else if (!isJumping) {
+                groundY = groundY * 0.95 + currentAnklesY * 0.05;
+                groundHipY = groundHipY * 0.95 + currentHipY * 0.05;
+            }
+
+            const groundAvgY = (groundY + groundHipY) / 2.0;
+            const currentAvgH = groundAvgY - currentAvgY;
+
+            const dynamicThreshold = torsoLength * jumpThresholdMultiplier;
+            const jumpTargetY = groundAvgY - dynamicThreshold;
+
+            const h = canvasElement.height;
+            const w = canvasElement.width;
+
+            canvasCtx.beginPath(); canvasCtx.moveTo(0, groundAvgY * h); canvasCtx.lineTo(w, groundAvgY * h);
+            canvasCtx.strokeStyle = 'lime'; canvasCtx.lineWidth = 2; canvasCtx.stroke();
+            canvasCtx.beginPath(); canvasCtx.moveTo(0, jumpTargetY * h); canvasCtx.lineTo(w, jumpTargetY * h);
+            canvasCtx.strokeStyle = 'red'; canvasCtx.lineWidth = 2; canvasCtx.stroke();
+
+            let descendingStart = false;
+            if (prevAvgY !== null && prevPrevAvgY !== null) {
+                if (prevAvgY <= prevPrevAvgY && currentAvgY > prevAvgY) {
+                    descendingStart = true;
+                }
+            }
+
+            let jumpTriggered = false;
+            if (currentAvgH > dynamicThreshold) {
+                if (prevAvgY !== null && currentAvgY > prevAvgY) {
+                    if (!isJumping) {
+                        isJumping = true;
+                        jumpTriggered = true;
+                        statusText.innerText = "Jumping (Avg)";
+                        statusText.style.color = "#00ffcc";
+                    }
+                }
+            } else {
+                if (isJumping) {
+                    isJumping = false;
+                    statusText.innerText = "Grounded";
+                    statusText.style.color = "#fff";
+
+                    // ジャンプ着地時にカウントアップ
+                    jumpCountVal++;
+                    consecutiveCount++;
+
+                    totalJumpText.innerText = jumpCountVal;
+                    consecutiveCountText.innerText = consecutiveCount;
+
+                    // 活動を検知したので中断タイマーをリセット
+                    lastActivityMs = nowMs;
+                    idleRefMs = nowMs;
+
+                    // 着地から着地までを跳躍1回の周期とする
+                    if (lastLandingMs !== null) {
+                        const cyc = nowMs - lastLandingMs;
+                        if (cyc > 150 && cyc < 3000) jumpCycleMs = cyc;
+                    }
+                    lastLandingMs = nowMs;
+
+                    // この跳躍サイクル中に縄が何回通過したかを確定
+                    if (ropeMethodSelect.value === 'wrist') {
+                        // rev8: 着地から着地までの手首の回転数がそのまま通過回数
+                        let m = 0;
+                        if (phaseAtLastLanding !== null && wristPeriodMs) {
+                            m = Math.round(wristPhase - phaseAtLastLanding);
+                            m = Math.max(0, Math.min(6, m));
+                        }
+                        phaseAtLastLanding = wristPhase;
+                        lastJumpPasses = m;
+                        if (m > 0) {
+                            ropeCountVal += m;
+                            totalRopeText.innerText = ropeCountVal;
+                        }
+                    } else if (ropeMethodSelect.value === 'motion') {
+                        // rev6: 「跳躍1回の周期 ÷ 縄1回転の周期」が多重度になる
+                        let m = 0;
+                        if (jumpCycleMs && ropePeriodMs && ropeConf >= parseInt(ropeConfMinInput.value) / 100) {
+                            m = Math.round(jumpCycleMs / ropePeriodMs);
+                            m = Math.max(1, Math.min(6, m));
+                        }
+                        lastJumpPasses = m;
+                        if (m > 0) {
+                            ropeCountVal += m;
+                            totalRopeText.innerText = ropeCountVal;
+                        }
+                    } else {
+                        lastJumpPasses = passesInCurrentJump;
+                    }
+                    passesInCurrentJump = 0;
+                    ropePerJumpText.innerText = passesLabel(lastJumpPasses);
+                }
+            }
+
+            /* =====================================================
+               縄跳び (赤い縄) の通過判定
+               ・足元〜地面付近に検出ゾーンを設定
+               ・ゾーン内の赤画素の面積率を求める
+               ・常時写り込む赤(服・靴・背景)はベースラインとして差し引く
+               ・しきい値を「下から上へ」跨いだ瞬間を1回としてカウント
+               ===================================================== */
+            let redRatioRaw = 0;
+            let ropeSignal = 0;
+            let ropePass = false;
+            let motionRes = null;
+            const methodNow = ropeMethodSelect.value;
+            const isWristMode = (methodNow === 'wrist');
+            const isMotionMode = (methodNow === 'motion');
+            const ropeOnThresh = parseInt(ropeThresholdInput.value) / 1000.0; // スライダー8 → 0.008 (0.8%)
+
+            if (ropeEnabledInput.checked && torsoLength > 0.01 && isWristMode) {
+                /* =====================================================
+                   rev8: 手首の回転による縄跳び判定
+                   縄を回すと手首は縄1回転につき小さな円を1周描く。
+                   映像の画素は一切見ず、骨格ランドマークだけで数える。
+                   ===================================================== */
+                const lm = results.poseLandmarks;
+                const lw = lm[LM_LEFT_WRIST], rw2 = lm[LM_RIGHT_WRIST];
+                const inv = 1.0 / Math.max(torsoLength, 1e-6);
+
+                // 肩の中点を基準にした相対位置へ直し、胴の長さで正規化する。
+                // これで人物の移動やカメラとの距離が変わっても同じ尺度になる。
+                const sample = {
+                    lOk: lw.visibility > WRIST_VIS_MIN,
+                    rOk: rw2.visibility > WRIST_VIS_MIN,
+                    lx: (lw.x - midShoulderX) * aspect * inv,
+                    ly: (lw.y - midShoulderY) * inv,
+                    rx: (rw2.x - midShoulderX) * aspect * inv,
+                    ry: (rw2.y - midShoulderY) * inv
+                };
+                const crossed = pushWristSample(nowMs, sample);
+                ropePass = crossed;
+                ropeSignal = wristSNorm;
+
+                if (crossed) { idleRefMs = nowMs; lastActivityMs = nowMs; }
+
+                if (wristPeriodMs && wristAmp >= parseInt(wristMinAmpInput.value) / 1000.0) {
+                    ropeRateText.innerText = (1000 / wristPeriodMs).toFixed(1) + "回/秒 ("
+                        + Math.round(wristPeriodMs) + "ms)";
+                } else {
+                    ropeRateText.innerText = "回転を待機中...";
+                }
+                redRatioText.innerText = "振れ幅 " + (wristAmp * 100).toFixed(1)
+                    + "% / 累計 " + wristPhase.toFixed(2) + "回転";
+
+                // --- 手首の軌跡と主軸の表示 ---
+                if (wristShowTrailInput.checked && wristBuf.length > 2) {
+                    canvasCtx.save();
+                    for (const key of ['l', 'r']) {
+                        canvasCtx.beginPath();
+                        let started = false;
+                        for (const pt of wristBuf) {
+                            if (!pt[key + 'Ok']) { started = false; continue; }
+                            // 正規化座標から画面座標へ戻す
+                            const px = (pt[key + 'x'] * torsoLength / aspect + midShoulderX) * w;
+                            const py = (pt[key + 'y'] * torsoLength + midShoulderY) * h;
+                            if (!started) { canvasCtx.moveTo(px, py); started = true; }
+                            else canvasCtx.lineTo(px, py);
+                        }
+                        canvasCtx.strokeStyle = 'rgba(79, 195, 247, 0.9)';
+                        canvasCtx.lineWidth = 2;
+                        canvasCtx.stroke();
+                    }
+                    // 現在の手首位置に、回転が成立していれば丸を描く
+                    const okNow = wristPeriodMs && wristAmp >= parseInt(wristMinAmpInput.value) / 1000.0;
+                    for (const p of [lw, rw2]) {
+                        if (p.visibility <= WRIST_VIS_MIN) continue;
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(p.x * w, p.y * h, okNow ? 10 : 6, 0, Math.PI * 2);
+                        canvasCtx.strokeStyle = okNow ? '#ff9800' : 'rgba(255,255,255,0.6)';
+                        canvasCtx.lineWidth = 3;
+                        canvasCtx.stroke();
+                    }
+                    canvasCtx.fillStyle = 'rgba(0,0,0,0.55)';
+                    canvasCtx.fillRect(10, h - 34, 300, 26);
+                    canvasCtx.fillStyle = '#4fc3f7';
+                    canvasCtx.font = '16px sans-serif';
+                    canvasCtx.fillText(`WRIST  振れ幅 ${(wristAmp*100).toFixed(1)}%  ${wristPhase.toFixed(2)}回転`, 16, h - 15);
+                    canvasCtx.restore();
+                }
+
+            } else if (ropeEnabledInput.checked && torsoLength > 0.01 && isMotionMode) {
+                /* =====================================================
+                   rev6: 動き(周波数解析)による縄跳び判定
+                   1. 足元ゾーンの「明るさが変化した画素の割合」を毎フレーム記録
+                   2. 一定間隔の格子へ再標本化し、NSDFで繰り返し周期を求める
+                   3. 跳躍周期 ÷ 縄周期 を四捨五入して多重度を得る
+                   縄の色はまったく使わない。
+                   ===================================================== */
+                const zoneH = torsoLength * (parseInt(ropeZoneHInput.value) / 100.0);
+                const halfW = (torsoLength * (parseInt(ropeZoneWInput.value) / 100.0)) / aspect / 2.0;
+                const centerX = (leftAnkle.x + rightAnkle.x) / 2.0;
+                const zone = {
+                    x0: centerX - halfW, x1: centerX + halfW,
+                    y0: groundY - zoneH, y1: groundY + torsoLength * ZONE_BELOW_GROUND
+                };
+
+                // 体(足首〜つま先)の矩形。ここを除外しないと脚の動きが縄より強く出る
+                const lm = results.poseLandmarks;
+                const fx = [lm[27].x, lm[28].x, lm[29].x, lm[30].x, lm[31].x, lm[32].x];
+                const fy = [lm[27].y, lm[28].y, lm[29].y, lm[30].y, lm[31].y, lm[32].y];
+                const mgX = torsoLength * 0.18 / aspect, mgY = torsoLength * 0.10;
+                const bodyBox = {
+                    x0: Math.min.apply(null, fx) - mgX, x1: Math.max.apply(null, fx) + mgX,
+                    y0: Math.min.apply(null, fy) - mgY, y1: Math.max.apply(null, fy) + mgY
+                };
+
+                motionRes = computeMotionEnergy(results.image, zone, bodyBox);
+
+                if (motionRes.valid) {
+                    motionBuf.push({ t: nowMs, e: motionRes.energy });
+                    const spanMs = parseInt(fftWindowInput.value) * 100;
+                    while (motionBuf.length && motionBuf[0].t < nowMs - spanMs - 200) motionBuf.shift();
+
+                    if (nowMs - lastEstimateMs >= ESTIMATE_EVERY_MS) {
+                        lastEstimateMs = nowMs;
+                        const grid = resampleUniform(motionBuf, spanMs, nowMs);
+                        if (grid) {
+                            // 跳躍周期が分かっていれば、その1/5.5〜1.35倍に探索を絞る。
+                            // これで「跳躍周期を縄周期と取り違える」octaveエラーが大きく減る。
+                            let lo = PERIOD_MIN_MS, hi = PERIOD_MAX_MS;
+                            if (jumpCycleMs) {
+                                lo = Math.max(PERIOD_MIN_MS, jumpCycleMs / 5.5);
+                                hi = Math.min(PERIOD_MAX_MS, jumpCycleMs * 1.35);
+                            }
+                            const est = estimatePeriod(grid, lo, hi);
+                            if (est.periodMs) { ropePeriodMs = est.periodMs; ropeConf = est.conf; }
+                            else { ropeConf = est.conf; }
+                        }
+                    }
+                }
+
+                ropeSignal = motionRes.energy;
+                const confMin = parseInt(ropeConfMinInput.value) / 100;
+                if (ropePeriodMs && ropeConf >= confMin) {
+                    const rate = 1000 / ropePeriodMs;
+                    ropeRateText.innerText = rate.toFixed(1) + "回/秒 (" + Math.round(ropePeriodMs) + "ms)";
+                    idleRefMs = nowMs;
+                    lastActivityMs = nowMs;
+                } else {
+                    ropeRateText.innerText = "計測中...";
+                }
+                redRatioText.innerText = "動き " + (motionRes.energy * 100).toFixed(1)
+                    + "% / 信頼度 " + ropeConf.toFixed(2);
+
+                // --- 可視化 ---
+                if (ropeShowZoneInput.checked) {
+                    const zx = zone.x0 * w, zy = zone.y0 * h;
+                    const zw = (zone.x1 - zone.x0) * w, zh = (zone.y1 - zone.y0) * h;
+                    canvasCtx.save();
+                    canvasCtx.lineWidth = 3;
+                    canvasCtx.strokeStyle = (ropeConf >= confMin) ? '#ff9800' : 'rgba(255,152,0,0.5)';
+                    canvasCtx.setLineDash(ropeConf >= confMin ? [] : [8, 6]);
+                    canvasCtx.strokeRect(zx, zy, zw, zh);
+                    canvasCtx.setLineDash([]);
+                    // 除外している体の矩形
+                    if (excludeBodyInput.checked) {
+                        canvasCtx.strokeStyle = 'rgba(255,80,80,0.8)';
+                        canvasCtx.lineWidth = 2;
+                        canvasCtx.strokeRect(bodyBox.x0 * w, bodyBox.y0 * h,
+                                             (bodyBox.x1 - bodyBox.x0) * w, (bodyBox.y1 - bodyBox.y0) * h);
+                    }
+                    canvasCtx.fillStyle = 'rgba(0,0,0,0.55)';
+                    canvasCtx.fillRect(zx, zy - 24, 260, 22);
+                    canvasCtx.fillStyle = '#ff9800';
+                    canvasCtx.font = '16px sans-serif';
+                    canvasCtx.fillText(`MOTION ${(motionRes.energy*100).toFixed(1)}%  conf ${ropeConf.toFixed(2)}`, zx + 6, zy - 7);
+                    canvasCtx.restore();
+                }
+
+                if (motionRes.error) {
+                    canvasCtx.fillStyle = 'red';
+                    canvasCtx.font = '18px sans-serif';
+                    canvasCtx.fillText('※映像のピクセルを読み取れません(CORS制限)', 20, 70);
+                }
+
+            } else if (ropeEnabledInput.checked && torsoLength > 0.01) {
+                const zoneH = torsoLength * (parseInt(ropeZoneHInput.value) / 100.0);
+                const halfW = (torsoLength * (parseInt(ropeZoneWInput.value) / 100.0)) / aspect / 2.0;
+                const centerX = (leftAnkle.x + rightAnkle.x) / 2.0;
+
+                const zone = {
+                    x0: centerX - halfW,
+                    x1: centerX + halfW,
+                    y0: groundY - zoneH,
+                    y1: groundY + torsoLength * ZONE_BELOW_GROUND
+                };
+
+                const needMask = ropeShowMaskInput.checked;
+                const res = analyzeRedInZone(results.image, zone, needMask);
+                redRatioRaw = res.ratio;
+
+                // 平滑化
+                redRatioSmooth = redRatioSmooth * 0.35 + redRatioRaw * 0.65;
+
+                // ベースライン初期学習期間: 背景の赤量を覚えるだけでカウントはしない
+                if (ropeInitFrames > 0) {
+                    ropeInitFrames--;
+                    redBaseline = redRatioSmooth;
+                    ropeActive = true; // 初期化直後の立ち上がり誤検出を防ぐ
+                }
+
+                // ベースライン学習(下方向は即追従、上方向はゆっくり)
+                if (redRatioSmooth < redBaseline) {
+                    redBaseline = redRatioSmooth;
+                } else if (redRatioSmooth - redBaseline < ropeOnThresh * BASELINE_RESET_HOLD) {
+                    redBaseline = redBaseline * (1 - BASELINE_UP_RATE) + redRatioSmooth * BASELINE_UP_RATE;
+                }
+
+                ropeSignal = Math.max(0, redRatioSmooth - redBaseline);
+
+                // 立ち上がり検出 (ヒステリシス + 不応期)
+                const minInterval = parseInt(ropeIntervalInput.value);
+
+                if (!ropeActive) {
+                    if (ropeSignal >= ropeOnThresh) {
+                        ropeActive = true;
+                        if (nowMs - lastRopePassMs >= minInterval) {
+                            ropeCountVal++;
+                            passesInCurrentJump++;
+                            ropePass = true;
+                            lastRopePassMs = nowMs;
+                            ropeFlashFrames = 6;
+                            // 縄が回っている間は地面再学習・中断リセットを起こさない
+                            idleRefMs = nowMs;
+                            lastActivityMs = nowMs;
+                            totalRopeText.innerText = ropeCountVal;
+                        }
+                    }
+                } else {
+                    if (ropeSignal < ropeOnThresh * HYSTERESIS_RATIO) {
+                        ropeActive = false;
+                    }
+                }
+
+                redRatioText.innerText = (ropeSignal * 100).toFixed(2) + "% / 生:" + (redRatioRaw * 100).toFixed(2) + "%";
+
+                // --- 検出ゾーンの可視化 ---
+                if (ropeShowZoneInput.checked) {
+                    const zx = zone.x0 * w, zy = zone.y0 * h;
+                    const zw = (zone.x1 - zone.x0) * w, zh = (zone.y1 - zone.y0) * h;
+                    canvasCtx.save();
+                    canvasCtx.lineWidth = ropeActive ? 5 : 2;
+                    canvasCtx.strokeStyle = ropeFlashFrames > 0 ? '#ffffff'
+                                          : (ropeActive ? '#ff9800' : 'rgba(255, 152, 0, 0.6)');
+                    canvasCtx.setLineDash(ropeActive ? [] : [8, 6]);
+                    canvasCtx.strokeRect(zx, zy, zw, zh);
+                    canvasCtx.setLineDash([]);
+                    canvasCtx.fillStyle = 'rgba(0,0,0,0.55)';
+                    canvasCtx.fillRect(zx, zy - 24, 190, 22);
+                    canvasCtx.fillStyle = '#ff9800';
+                    canvasCtx.font = '16px sans-serif';
+                    canvasCtx.fillText(`ROPE ZONE  ${(ropeSignal * 100).toFixed(2)}%`, zx + 6, zy - 7);
+                    canvasCtx.restore();
+                }
+
+                // --- 赤色マスクの可視化 ---
+                if (needMask && res.maskPoints && res.maskPoints.length) {
+                    const pts = res.maskPoints;
+                    const sx = (w / ANALYSIS_WIDTH_ACTIVE) * SAMPLE_STEP_ACTIVE;
+                    const sy = sx;
+                    canvasCtx.save();
+                    canvasCtx.fillStyle = 'rgba(0, 255, 255, 0.85)';
+                    canvasCtx.beginPath();
+                    for (let i = 0; i < pts.length; i += 2) {
+                        canvasCtx.rect(pts[i] * w, pts[i + 1] * h, sx, sy);
+                    }
+                    canvasCtx.fill();
+                    canvasCtx.restore();
+                }
+
+                // 通過時のフラッシュ表示
+                if (ropeFlashFrames > 0) {
+                    ropeFlashFrames--;
+                    canvasCtx.save();
+                    canvasCtx.fillStyle = 'rgba(255, 152, 0, 0.9)';
+                    canvasCtx.font = 'bold 46px sans-serif';
+                    canvasCtx.fillText('ROPE ' + ropeCountVal, 20, h - 30);
+                    canvasCtx.restore();
+                }
+
+                if (res.error) {
+                    canvasCtx.fillStyle = 'red';
+                    canvasCtx.font = '18px sans-serif';
+                    canvasCtx.fillText('※映像のピクセルを読み取れません(CORS制限)', 20, 70);
+                }
+            } else {
+                redRatioText.innerText = "OFF";
+                ropeRateText.innerText = "-";
+            }
+
+            graphHistory.push({
+                avgH: currentAvgH,
+                thresh: dynamicThreshold,
+                isJumping: isJumping,
+                descendingStart: descendingStart,
+                jumpTriggered: jumpTriggered,
+                ropeSignal: ropeSignal,
+                ropeThresh: ropeOnThresh,
+                ropePass: ropePass,
+                motionMode: isMotionMode,
+                wristMode: isWristMode,
+                wristRate: (isWristMode && wristPeriodMs) ? 1000 / wristPeriodMs : 0,
+                wristAmp: wristAmp,
+                ropeConf: ropeConf,
+                ropeRate: (isMotionMode && ropePeriodMs) ? 1000 / ropePeriodMs : 0
+            });
+
+            if (graphHistory.length > MAX_HISTORY) {
+                graphHistory.shift();
+            }
+
+            prevPrevAvgY = prevAvgY;
+            prevAvgY = currentAvgY;
+
+            // --- 「スタート！」表示 (計測はこの瞬間から動いている) ---
+            if (startFlashShownAt !== null) {
+                const flashElapsed = nowMs - startFlashShownAt;
+                if (flashElapsed < START_FLASH_MS) {
+                    // 終わりぎわは点滅させて自然に消す
+                    const blink = flashElapsed > START_FLASH_MS * 0.6
+                        ? (Math.floor(flashElapsed / 120) % 2 === 0)
+                        : true;
+                    if (blink) {
+                        drawCenterMessage(canvasCtx, "スタート！", "跳んでください", "#00ffcc", 0.13);
+                    }
+                } else {
+                    startFlashShownAt = null;
+                }
+            }
+
+            drawPoseGraph();
+            canvasCtx.restore();
+        }
+
+        async function processVideo() {
+            if (!videoElement.paused && !videoElement.ended) {
+
+                if (!isCameraMode && videoElement.duration) {
+                    timeDisplay.innerText = `${formatTime(videoElement.currentTime)} / ${formatTime(videoElement.duration)}`;
+                    if (document.activeElement !== seekSlider) {
+                        seekSlider.value = (videoElement.currentTime / videoElement.duration) * 100;
+                    }
+                } else if (isCameraMode) {
+                    timeDisplay.innerText = "LIVE";
+                    seekSlider.value = 100;
+                }
+
+                if (!pose) return;
+                await pose.send({image: videoElement});
+                animationId = requestAnimationFrame(processVideo);
+
+            } else if (!isCameraMode && videoElement.ended) {
+                seekSlider.value = 100;
+            }
+        }
+    </script>
+</body>
+</html>
