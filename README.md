@@ -3,4 +3,4 @@
   
 https://yuspovgagalin.github.io/Jump-rope-counter/jump_rope_counter_rev9_mobile-performance.html
 
-<img width="1024" height="1024" alt="jump_rope_counter_rev5_chrome-support_GitHubQR" src="https://github.com/user-attachments/assets/d0127425-0e1f-411b-aa8c-7aad6e0f67cc" />
+<img width="250" height="250" alt="ダウンロードJump-rope-counter" src="https://github.com/user-attachments/assets/86fa3355-b44e-44b2-95e0-f1373d7a1560" />
