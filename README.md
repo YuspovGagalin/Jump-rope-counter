@@ -16,5 +16,3 @@ https://yuspovgagalin.github.io/Jump-rope-counter/jump_rope_counter_rev10_max-mu
 ----
 
 
-<img width="855" height="487" alt="image" src="https://github.com/user-attachments/assets/e2aa6906-a80a-4720-8390-2f92a3e4b179" />
-
